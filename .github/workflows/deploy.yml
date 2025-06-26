@@ -1,6 +1,8 @@
 # GitHub Pages 배포를 위한 워크플로우
+# 모든 액션을 최신 안정화 버전으로 업데이트하여 버전 오류 문제를 해결합니다.
 name: Deploy to GitHub Pages
 
+# 워크플로우 실행 조건
 on:
   # 'main' 브랜치에 push가 발생할 때마다 이 워크플로우를 실행합니다.
   push:
@@ -13,15 +15,24 @@ on:
 concurrency:
   group: "pages"
   cancel-in-progress: true
+
+# GitHub Actions에 필요한 권한을 설정합니다.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
   
 jobs:
   # 배포 잡
   deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      # 1. 저장소의 코드를 체크아웃합니다.
+      # 1. 저장소의 코드를 체크아웃합니다. (최신 버전 v4)
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # 2. index.html 파일의 플레이스홀더를 GitHub Secrets 값으로 교체합니다.
       - name: Replace Tokens
@@ -32,18 +43,18 @@ jobs:
           # 왼쪽: index.html 안의 플레이스홀더 이름, 오른쪽: 저장소에 등록된 Secret 이름
           GITHUB_TOKEN_PLACEHOLDER: ${{ secrets.GH_PAT }}
 
-      # 3. GitHub Pages에 배포하기 위한 아티팩트를 준비합니다.
+      # 3. GitHub Pages에 배포하기 위한 아티팩트를 준비합니다. (최신 버전 v5)
       - name: Setup Pages
-        uses: actions/configure-pages@v3
+        uses: actions/configure-pages@v5
         
-      # 4. 준비된 아티팩트를 업로드합니다.
+      # 4. 준비된 아티팩트를 업로드합니다. (최신 버전 v4)
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v2
+        uses: actions/upload-pages-artifact@v4
         with:
           # 현재 폴더 전체를 업로드합니다.
           path: '.'
 
-      # 5. 아티팩트를 GitHub Pages에 배포합니다.
+      # 5. 아티팩트를 GitHub Pages에 배포합니다. (최신 버전 v4)
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v2
+        uses: actions/deploy-pages@v4
