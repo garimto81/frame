@@ -1,5 +1,5 @@
 # GitHub Pages 배포를 위한 워크플로우
-# 모든 액션을 최신 안정화 버전으로 업데이트하여 버전 오류 문제를 해결합니다.
+# 모든 액션을 검증된 최신 안정화 버전으로 수정하여 오류 문제를 해결합니다.
 name: Deploy to GitHub Pages
 
 # 워크플로우 실행 조건
@@ -47,9 +47,9 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
         
-      # 4. 준비된 아티팩트를 업로드합니다. (최신 버전 v4)
+      # 4. 준비된 아티팩트를 업로드합니다. (오류 수정: 최신 안정화 버전 v3 사용)
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v3
         with:
           # 현재 폴더 전체를 업로드합니다.
           path: '.'
