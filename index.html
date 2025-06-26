@@ -89,13 +89,14 @@
         // --- Google API State ---
         // =========================================================================================
         // === 중요: 1단계 - 여기에 당신의 API 키와 클라이언트 ID를 입력하세요 ===
+        // 팁: redirect_uri_mismatch 오류 방지를 위해 Cloud Console에 http://127.0.0.1:포트 와 http://localhost:포트 를 모두 등록하세요.
         // =========================================================================================
         const API_KEY = 'AIzaSyBUmKuZjPq-VZtZJplJMvnxGnJM09RY1V4'; // Google Cloud Console에서 발급받은 API 키
         const CLIENT_ID = '716495246752-bdfv696aer0734ie02j772qk414sh069.apps.googleusercontent.com'; // Google Cloud Console에서 발급받은 OAuth 2.0 클라이언트 ID
         // =========================================================================================
         
         const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest", "https://sheets.googleapis.com/$discovery/rest?version=v4"];
-        const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets'; // More specific scopes
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
         const APP_FOLDER_NAME = '포커스 분석 결과';
         const APP_SHEET_NAME = 'Focus Analysis Report';
         const IMAGE_FOLDER_NAME = '주요 프레임 이미지';
@@ -120,6 +121,11 @@
         };
 
         async function initializeGapiClient() {
+            if (API_KEY === 'YOUR_API_KEY' || CLIENT_ID === 'YOUR_CLIENT_ID') {
+                modelStatus.textContent = '오류: 코드에 API 키와 클라이언트 ID를 입력해야 합니다.';
+                modelStatus.className = 'text-lg text-red-600 mt-2';
+                return;
+            }
             await gapi.client.init({ apiKey: API_KEY, discoveryDocs: DISCOVERY_DOCS });
             gapiInited = true;
             maybeEnableAuthButtons();
@@ -154,13 +160,25 @@
                     authorizeButton.style.display = 'block';
                     signoutButton.style.display = 'none';
                     authStatus.textContent = '';
+                    sheetDataContainer.innerHTML = '<p id="sheet-data-placeholder" class="text-gray-500 text-center py-4">Google 로그인 후 데이터를 불러옵니다...</p>';
                     updateAnalyzeButtonState();
                 });
              }
         };
 
+        // **MODIFIED**: Added detailed logging to the authentication callback
         async function gapiAuthCallback(resp) {
-            if (resp.error !== undefined) { throw (resp); }
+            if (resp.error !== undefined) {
+                // Log the entire error object to the browser's developer console
+                console.error('Google Auth Error Details:', resp); 
+                
+                // Display a more user-friendly error message
+                authStatus.textContent = `인증 오류: ${resp.error}. 브라우저 개발자 콘솔(F12)에서 상세 내용을 확인하세요.`;
+                authStatus.className = 'text-sm text-red-500 mt-2';
+                
+                // Throw the error to stop further execution
+                throw (resp);
+             }
             authorizeButton.style.display = 'none';
             signoutButton.style.display = 'block';
             authStatus.textContent = 'Google 계정으로 로그인되었습니다.';
@@ -200,30 +218,33 @@
         }
         
         async function setupGoogleDrive() {
-            appFolderId = await findOrCreate(APP_FOLDER_NAME, 'application/vnd.google-apps.folder');
-            imageFolderId = await findOrCreate(IMAGE_FOLDER_NAME, 'application/vnd.google-apps.folder', appFolderId);
-            spreadsheetId = await findOrCreate(APP_SHEET_NAME, 'application/vnd.google-apps.spreadsheet', appFolderId);
-            
-            // Check if sheet is new, if so, add headers.
-            const sheet = await gapi.client.sheets.spreadsheets.get({ spreadsheetId: spreadsheetId, ranges: [] });
-            if (sheet.result.sheets.length === 1 && sheet.result.sheets[0].properties.title === 'Sheet1') {
-                 await createSheetWithHeaders(spreadsheetId);
+            try {
+                appFolderId = await findOrCreate(APP_FOLDER_NAME, 'application/vnd.google-apps.folder');
+                imageFolderId = await findOrCreate(IMAGE_FOLDER_NAME, 'application/vnd.google-apps.folder', appFolderId);
+                spreadsheetId = await findOrCreate(APP_SHEET_NAME, 'application/vnd.google-apps.spreadsheet', appFolderId);
+                
+                const sheet = await gapi.client.sheets.spreadsheets.get({ spreadsheetId: spreadsheetId, ranges: [] });
+                if (sheet.result.sheets.length === 1 && sheet.result.sheets[0].properties.title === 'Sheet1') {
+                     await createSheetWithHeaders(spreadsheetId);
+                }
+            } catch (err) {
+                console.error("Google Drive setup failed:", err);
+                appendLog(`[ERROR] Google Drive 설정 실패: ${err.result.error.message}`, 'text-red-500');
             }
         }
         
         async function loadSheetData() {
             if (!spreadsheetId) {
-                sheetDataPlaceholder.textContent = 'Google 시트 정보를 찾을 수 없습니다.';
+                sheetDataContainer.innerHTML = '<p id="sheet-data-placeholder" class="text-gray-500 text-center py-4">Google 시트 정보를 찾을 수 없습니다.</p>';
                 return;
             }
             try {
                 const response = await gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: spreadsheetId, range: 'A:E' });
-                sheetDataPlaceholder.classList.add('hidden');
+                document.getElementById('sheet-data-placeholder').classList.add('hidden');
                 sheetDataContainer.innerHTML = '';
                 const rows = response.result.values || [];
-                if(rows.length <= 1) { // Only header
-                    sheetDataPlaceholder.textContent = '아직 저장된 분석 기록이 없습니다.';
-                    sheetDataPlaceholder.classList.remove('hidden');
+                if(rows.length <= 1) { 
+                    sheetDataContainer.innerHTML = '<p class="text-gray-500 text-center py-4">아직 저장된 분석 기록이 없습니다.</p>';
                     return;
                 }
                 
@@ -231,7 +252,7 @@
                 table.className = 'w-full text-sm text-left text-gray-500';
                 table.innerHTML = `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>${rows[0].map(h => `<th scope="col" class="px-6 py-3">${h}</th>`).join('')}</tr></thead>`;
                 const tbody = document.createElement('tbody');
-                rows.slice(1).forEach(row => {
+                rows.slice(1).reverse().forEach(row => { // Show newest first
                     const tr = document.createElement('tr');
                     tr.className = 'bg-white border-b';
                     tr.innerHTML = row.map(cell => `<td class="px-6 py-4">${cell}</td>`).join('');
@@ -242,13 +263,38 @@
 
             } catch(e) {
                  console.error("Error loading sheet data", e);
-                 sheetDataPlaceholder.textContent = '시트 데이터 로딩 중 오류가 발생했습니다.';
+                 sheetDataContainer.innerHTML = '<p class="text-gray-500 text-center py-4">시트 데이터 로딩 중 오류가 발생했습니다.</p>';
             }
         }
         
+        async function uploadImageToDrive(folderId, fileName, base64Data) {
+            const metadata = { name: fileName, parents: [folderId] };
+            const base64 = base64Data.split(',')[1];
+            const boundary = '-------314159265358979323846';
+            const delimiter = "\r\n--" + boundary + "\r\n";
+            const close_delim = "\r\n--" + boundary + "--";
+
+            var multipartRequestBody = delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) + delimiter + 'Content-Type: image/jpeg\r\n' + 'Content-Transfer-Encoding: base64\r\n' + '\r\n' + base64 + close_delim;
+
+            const request = gapi.client.request({
+                'path': '/upload/drive/v3/files',
+                'method': 'POST',
+                'params': {'uploadType': 'multipart'},
+                'headers': {'Content-Type': 'multipart/related; boundary="' + boundary + '"'},
+                'body': multipartRequestBody
+            });
+            
+            try {
+                await request;
+                appendLog(`[INFO] '${fileName}' 이미지를 Drive에 업로드했습니다.`, 'text-blue-400');
+            } catch(err) {
+                 console.error("Image upload failed", err);
+                 appendLog(`[ERROR] 이미지 업로드 실패: ${err.result.error.message}`, 'text-red-500');
+            }
+        }
+
         // --- Core Logic & Helpers ---
         function calculateFocusScore(imageData) {
-            // (Same as previous version)
             const { width, height, data } = imageData;
             if (width === 0 || height === 0) return 0;
             const gray = new Uint8Array(width * height);
@@ -269,7 +315,6 @@
         }
 
         function getCentermostFace(detections, videoWidth, videoHeight) {
-            // (Same as previous version)
             if (!detections || detections.length === 0) return null;
             if (detections.length === 1) return detections[0];
             const frameCenterX = videoWidth / 2, frameCenterY = videoHeight / 2;
@@ -383,7 +428,12 @@
                     blurryPercentage > 10 ? 'Yes' : 'No',
                     blurryPercentage.toFixed(1)
                 ]];
-                await appendToSheet(spreadsheetId, valuesToAppend);
+                await gapi.client.sheets.spreadsheets.values.append({
+                    spreadsheetId: spreadsheetId,
+                    range: 'A1',
+                    valueInputOption: 'USER_ENTERED',
+                    resource: { values: valuesToAppend },
+                });
                 
                 URL.revokeObjectURL(fileURL);
                 appendLog(`[END] '${file.name}' 분석 완료.`, 'text-cyan-400');
