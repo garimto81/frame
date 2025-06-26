@@ -95,7 +95,7 @@
         // --- Model Initialization ---
         async function loadFaceApiModels() {
             try {
-                if (!GITHUB_CONFIG.owner || GITHUB_CONFIG.owner === 'YOUR_GITHUB_USERNAME') {
+                if (!GITHUB_CONFIG.owner || GITHUB_CONFIG.owner === 'YOUR_GITHUB_USERNAME' || !GITHUB_CONFIG.token || GITHUB_CONFIG.token === 'YOUR_PERSONAL_ACCESS_TOKEN') {
                      modelStatus.textContent = '오류: 코드에 GitHub 정보를 먼저 입력해야 합니다.';
                      modelStatus.className = 'text-lg text-red-600 mt-2';
                      return;
@@ -105,7 +105,7 @@
                 modelStatus.textContent = '얼굴 인식 모델 로딩 완료! 분석할 영상을 선택하세요.';
                 modelStatus.className = 'text-lg text-green-600 mt-2';
                 updateAnalyzeButtonState();
-                loadResultsFromGitHub();
+                initializeAndLoadGitHubData();
             } catch (error) {
                 modelStatus.textContent = '얼굴 인식 모델 로딩 실패. 새로고침 해주세요.';
                 modelStatus.className = 'text-lg text-red-600 mt-2';
@@ -117,29 +117,30 @@
         async function getFileFromGitHub(path) {
             try {
                 const response = await fetch(GITHUB_API_URL + path, { headers: GITHUB_HEADERS });
-                if (response.status === 404) return null; // File not found
-                if (!response.ok) throw new Error(`GitHub API Error: ${response.statusText}`);
+                if (response.status === 404) return null; // File not found is an expected case
+                if (!response.ok) throw new Error(`GitHub API Error: ${response.status} ${response.statusText}`);
                 return await response.json();
             } catch (error) {
                 console.error('GitHub 파일 읽기 오류:', error);
-                appendLog(`[ERROR] GitHub 파일 읽기 실패: ${path}`, 'text-red-500');
-                return null;
+                appendLog(`[ERROR] GitHub 파일 읽기 실패: ${path}. Token 권한을 확인하세요.`, 'text-red-500');
+                return 'error'; // Return a specific error signal
             }
         }
 
         async function updateFileOnGitHub(path, content, sha, commitMessage) {
             const body = {
                 message: commitMessage,
-                content: btoa(unescape(encodeURIComponent(content))), // Encode to Base64
-                sha: sha
+                content: btoa(unescape(encodeURIComponent(content))),
+                sha: sha // Will be null for new files
             };
             try {
-                await fetch(GITHUB_API_URL + path, {
+                const response = await fetch(GITHUB_API_URL + path, {
                     method: 'PUT',
                     headers: GITHUB_HEADERS,
                     body: JSON.stringify(body)
                 });
-                appendLog(`[INFO] '${path}' 파일 업데이트 완료`, 'text-blue-400');
+                if (!response.ok) throw new Error(`GitHub API Error: ${response.status} ${response.statusText}`);
+                appendLog(`[INFO] '${path}' 파일 업데이트/생성 완료`, 'text-blue-400');
             } catch (error) {
                 console.error('GitHub 파일 업데이트 오류:', error);
                 appendLog(`[ERROR] GitHub 파일 업데이트 실패: ${path}`, 'text-red-500');
@@ -152,11 +153,12 @@
                 content: content.split(',')[1] // Remove the base64 prefix
             };
              try {
-                await fetch(GITHUB_API_URL + path, {
+                const response = await fetch(GITHUB_API_URL + path, {
                     method: 'PUT',
                     headers: GITHUB_HEADERS,
                     body: JSON.stringify(body)
                 });
+                 if (!response.ok) throw new Error(`GitHub API Error: ${response.status} ${response.statusText}`);
                 appendLog(`[INFO] 이미지 업로드 완료: ${path}`, 'text-blue-400');
             } catch (error) {
                 console.error('GitHub 이미지 업로드 오류:', error);
@@ -164,11 +166,44 @@
             }
         }
         
-        async function loadResultsFromGitHub() {
-            sheetDataPlaceholder.textContent = 'GitHub에서 분석 기록을 불러옵니다...';
-            const fileData = await getFileFromGitHub(GITHUB_CONFIG.resultsPath);
-            if(fileData && fileData.content) {
-                const content = decodeURIComponent(escape(atob(fileData.content)));
+        // **NEW**: Initialize GitHub file structure if it doesn't exist
+        async function initializeAndLoadGitHubData() {
+            sheetDataPlaceholder.textContent = 'GitHub에서 분석 기록을 확인합니다...';
+            let resultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsPath);
+
+            // If file check resulted in an error, stop.
+            if (resultsFile === 'error') {
+                sheetDataPlaceholder.textContent = 'GitHub 저장소 접근에 실패했습니다. 설정을 확인하세요.';
+                return;
+            }
+
+            // If results.json doesn't exist, create it with an empty array.
+            if (resultsFile === null) {
+                appendLog(`[INFO] '${GITHUB_CONFIG.resultsPath}' 파일을 찾을 수 없습니다. 새로 생성합니다.`, 'text-yellow-400');
+                await updateFileOnGitHub(
+                    GITHUB_CONFIG.resultsPath,
+                    '[]', // Initial content: an empty JSON array
+                    null, // No sha for new file
+                    'Initialize results.json'
+                );
+                resultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsPath);
+            }
+
+            // Also ensure the images directory exists by creating a .gitkeep file
+            const imageDirKeepPath = `${GITHUB_CONFIG.imagesPath}/.gitkeep`;
+            const keepFile = await getFileFromGitHub(imageDirKeepPath);
+            if (keepFile === null) {
+                appendLog(`[INFO] 이미지 저장 폴더를 초기화합니다.`, 'text-yellow-400');
+                await updateFileOnGitHub(
+                    imageDirKeepPath,
+                    '', // Empty content for .gitkeep
+                    null,
+                    'Initialize images directory'
+                );
+            }
+
+            if(resultsFile && resultsFile.content) {
+                const content = decodeURIComponent(escape(atob(resultsFile.content)));
                 const results = JSON.parse(content);
                 renderGitHubResults(results.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)));
             } else {
@@ -348,18 +383,19 @@
                     blurryPercentage: blurryPercentage
                 };
 
-                // Update results.json on GitHub
                 const existingResultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsPath);
                 let allResults = [];
-                if (existingResultsFile) {
+                let currentSha = null;
+                if (existingResultsFile && existingResultsFile.content) {
                     allResults = JSON.parse(decodeURIComponent(escape(atob(existingResultsFile.content))));
+                    currentSha = existingResultsFile.sha;
                 }
                 allResults.push(newResult);
                 
                 await updateFileOnGitHub(
                     GITHUB_CONFIG.resultsPath,
                     JSON.stringify(allResults, null, 2),
-                    existingResultsFile ? existingResultsFile.sha : null,
+                    currentSha,
                     `Add analysis for ${file.name}`
                 );
                 
@@ -372,7 +408,7 @@
             analyzeButton.disabled = false;
             videoFiles = []; 
             updateAnalyzeButtonState();
-            await loadResultsFromGitHub(); // Refresh data after analysis
+            await loadResultsFromGitHub();
         });
 
         // --- Initial Load ---
