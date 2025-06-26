@@ -74,16 +74,13 @@
         const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
 
         // --- GitHub API State ---
-        // 이 값들은 GitHub Actions에 의해 빌드 시점에 실제 Secret 값으로 대체됩니다.
         const GITHUB_CONFIG = {
-            owner: 'garimto81', // 당신의 GitHub 사용자 이름 (이것도 Secret으로 관리 가능)
-            repo: 'frame',  // 당신의 저장소 이름 (이것도 Secret으로 관리 가능)
-            token: '#{GITHUB_TOKEN_PLACEHOLDER}#', // GitHub PAT 플레이스홀더
+            owner: 'garimto81',
+            repo: 'frame',
+            token: '#{GITHUB_TOKEN_PLACEHOLDER}#',
             resultsPath: 'data/results.json',
             imagesPath: 'data/images'
         };
-        // 참고: Google API 관련 키는 이 버전에서 제거되었습니다.
-        // 만약 Google 로그인이 필요하다면, 동일한 방식으로 플레이스홀더를 추가하면 됩니다.
 
         const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/`;
         const GITHUB_HEADERS = {
@@ -94,10 +91,10 @@
         // --- Model Initialization ---
         async function loadFaceApiModels() {
             try {
-                // 플레이스홀더가 실제 값으로 대체되었는지 확인
                 if (GITHUB_CONFIG.token.includes('PLACEHOLDER')) {
-                     modelStatus.textContent = '오류: GitHub Actions를 통해 배포해야 합니다.';
+                     modelStatus.textContent = '오류: GitHub Actions를 통해 배포된 페이지에서 접속해야 합니다.';
                      modelStatus.className = 'text-lg text-red-600 mt-2';
+                     analyzeButton.disabled = true;
                      return;
                 }
                 await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
