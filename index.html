@@ -3,14 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>포커스 이슈 탐지기 | Focus Issue Detector</title>
+    <title>포커스 이슈 탐지기 (얼굴 인식 기반) | Focus Issue Detector</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Face Recognition Library -->
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <style>
         body {
             font-family: 'Noto Sans KR', sans-serif;
         }
-        /* Custom styles for better UI */
         .loader {
             border: 5px solid #f3f3f3;
             border-top: 5px solid #3498db;
@@ -23,9 +24,8 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        /* Style for selected item in file list */
         .file-item.selected {
-            background-color: #dbeafe; /* Tailwind's blue-100 */
+            background-color: #dbeafe;
         }
     </style>
 </head>
@@ -34,7 +34,7 @@
     <div class="container mx-auto p-4 md:p-8 max-w-6xl">
         <header class="text-center mb-8">
             <h1 class="text-3xl md:text-4xl font-bold text-gray-900">포커스 이슈 탐지기</h1>
-            <p class="text-lg text-gray-600 mt-2">영상 클립의 초점 문제를 자동으로 분석합니다.</p>
+            <p id="model-status" class="text-lg text-yellow-600 mt-2">얼굴 인식 모델 로딩 중...</p>
         </header>
 
         <div class="bg-white p-6 rounded-2xl shadow-lg mb-8">
@@ -44,13 +44,12 @@
         </div>
 
         <div class="grid md:grid-cols-2 gap-8 mb-8">
-            <!-- Left Panel: File List & Calibration -->
             <div class="bg-white p-6 rounded-2xl shadow-lg">
                 <h2 class="text-xl font-semibold mb-4 border-b pb-2">2. 기준 설정 (Calibration)</h2>
                 <div id="file-list-container" class="h-48 overflow-y-auto bg-gray-50 rounded-lg p-2 border mb-4">
                     <p class="text-gray-500 text-center py-4">분석할 파일을 선택하면 여기에 영상 목록이 표시됩니다.</p>
                 </div>
-                 <p class="text-gray-600 mb-4">목록에서 영상 하나를 클릭해 재생하며 '선명도 점수'를 확인하고, 아래 슬라이더로 '흐림 기준값'을 조절하세요.</p>
+                 <p class="text-gray-600 mb-4">목록의 영상을 클릭 후, 미리보기에서 **재생 버튼을 눌러** '선명도 점수'를 확인하고 '흐림 기준값'을 조절하세요.</p>
                 
                 <div class="flex items-center justify-between mb-4 bg-gray-100 p-3 rounded-lg">
                     <span class="font-bold text-lg">현재 프레임 선명도:</span>
@@ -67,10 +66,12 @@
                 </div>
             </div>
 
-            <!-- Right Panel: Video Preview -->
             <div class="bg-white p-6 rounded-2xl shadow-lg flex flex-col items-center justify-center">
                  <h2 class="text-xl font-semibold mb-4 border-b pb-2 w-full text-center">미리보기</h2>
-                <video id="video-preview" class="w-full rounded-lg bg-black" controls></video>
+                <div class="relative w-full">
+                    <video id="video-preview" class="w-full rounded-lg bg-black" controls crossorigin="anonymous"></video>
+                    <canvas id="overlay-canvas" class="absolute top-0 left-0 w-full h-full pointer-events-none"></canvas>
+                </div>
                 <canvas id="canvas" class="hidden"></canvas>
             </div>
         </div>
@@ -78,7 +79,7 @@
         <div class="bg-white p-6 rounded-2xl shadow-lg text-center mb-8">
             <h2 class="text-xl font-semibold mb-4 border-b pb-2">3. 전체 영상 분석</h2>
             <p class="text-gray-600 mb-4">기준 설정이 완료되었으면, 선택한 모든 영상의 포커스 이슈를 분석합니다.</p>
-            <p class="text-sm text-gray-500 -mt-2 mb-4">참고: 약 1초(30프레임) 간격으로 프레임을 샘플링하여 효율적으로 분석합니다.</p>
+            <p class="text-sm text-gray-500 -mt-2 mb-4">참고: 0.5초 간격으로 **가장 중앙에 있는 얼굴**을 찾아 분석합니다. (얼굴 미검출 시 건너뜀)</p>
             <button id="analyze-button" class="bg-blue-600 text-white font-bold py-3 px-8 rounded-full hover:bg-blue-700 transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed">
                 모든 영상 분석 시작
             </button>
@@ -88,10 +89,24 @@
             </div>
         </div>
         
-        <div class="bg-white p-6 rounded-2xl shadow-lg">
+        <div class="bg-white p-6 rounded-2xl shadow-lg mb-8">
             <h2 class="text-xl font-semibold mb-4 border-b pb-2">4. 분석 로그</h2>
             <div id="results-container" class="h-96 overflow-y-auto bg-gray-900 text-white font-mono rounded-lg p-4 border text-sm">
                  <p class="text-gray-400 text-center py-4">분석을 시작하면 여기에 실시간 로그가 표시됩니다.</p>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl shadow-lg mb-8">
+            <h2 class="text-xl font-semibold mb-4 border-b pb-2">5. 분석 결과</h2>
+            <div id="compact-results-container" class="h-96 overflow-y-auto bg-gray-50 rounded-lg p-2 border space-y-2">
+                <p id="compact-results-placeholder" class="text-gray-500 text-center py-4">분석을 완료하면 여기에 파일별 평균 점수 결과가 표시됩니다.</p>
+            </div>
+        </div>
+        
+        <div class="bg-white p-6 rounded-2xl shadow-lg">
+            <h2 class="text-xl font-semibold mb-4 border-b pb-2">6. 주요 프레임</h2>
+            <div id="key-frames-container" class="h-96 overflow-y-auto bg-gray-50 rounded-lg p-4 border space-y-4">
+                 <p id="key-frames-placeholder" class="text-gray-500 text-center py-4">'선명'에서 '흐림'으로 전환되는 프레임이 감지되면 여기에 표시됩니다.</p>
             </div>
         </div>
     </div>
@@ -102,6 +117,7 @@
         const fileListContainer = document.getElementById('file-list-container');
         const videoPreview = document.getElementById('video-preview');
         const canvas = document.getElementById('canvas');
+        const overlayCanvas = document.getElementById('overlay-canvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         const focusScoreEl = document.getElementById('focus-score');
         const thresholdSlider = document.getElementById('threshold-slider');
@@ -109,25 +125,48 @@
         const analyzeButton = document.getElementById('analyze-button');
         const loadingIndicator = document.getElementById('loading-indicator');
         const progressText = document.getElementById('progress-text');
+        const modelStatus = document.getElementById('model-status');
         const resultsContainer = document.getElementById('results-container');
+        const compactResultsContainer = document.getElementById('compact-results-container');
+        const compactResultsPlaceholder = document.getElementById('compact-results-placeholder');
+        const keyFramesContainer = document.getElementById('key-frames-container');
+        const keyFramesPlaceholder = document.getElementById('key-frames-placeholder');
 
         // --- Global State ---
         let videoFiles = [];
         let animationFrameId;
+        let modelsLoaded = false;
+        const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
 
-        // --- Core Logic: Focus Calculation (Variance of Laplacian) ---
-        function calculateFocusScore(ctx, width, height) {
-            const imageData = ctx.getImageData(0, 0, width, height);
+        // --- Model Loading ---
+        async function loadModels() {
+            try {
+                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+                modelsLoaded = true;
+                modelStatus.textContent = '얼굴 인식 모델 로딩 완료! 분석할 영상을 선택하세요.';
+                modelStatus.className = 'text-lg text-green-600 mt-2';
+                updateFileList();
+            } catch (error) {
+                modelStatus.textContent = '얼굴 인식 모델 로딩 실패. 새로고침 해주세요.';
+                modelStatus.className = 'text-lg text-red-600 mt-2';
+                console.error("Face-api model loading failed:", error);
+            }
+        }
+
+        // --- Core Logic: Focus Calculation ---
+        function calculateFocusScore(imageData) {
+            const { width, height, data } = imageData;
+            if (width === 0 || height === 0) return 0;
             const gray = new Uint8Array(width * height);
-            for (let i = 0; i < imageData.data.length; i += 4) {
-                const r = imageData.data[i];
-                const g = imageData.data[i + 1];
-                const b = imageData.data[i + 2];
-                gray[i / 4] = 0.299 * r + 0.587 * g + 0.114 * b;
+            
+            for (let i = 0; i < data.length; i += 4) {
+                const pixelIndex = i / 4;
+                gray[pixelIndex] = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
             }
 
             let laplacianMean = 0;
             const laplacianValues = [];
+            
             for (let y = 1; y < height - 1; y++) {
                 for (let x = 1; x < width - 1; x++) {
                     const i = y * width + x;
@@ -136,14 +175,37 @@
                     laplacianMean += laplacian;
                 }
             }
+            if (laplacianValues.length === 0) return 0;
             laplacianMean /= laplacianValues.length;
-
-            let variance = 0;
-            if (laplacianValues.length > 0) {
-                 variance = laplacianValues.reduce((acc, val) => acc + Math.pow(val - laplacianMean, 2), 0) / laplacianValues.length;
-            }
+            
+            let variance = laplacianValues.reduce((acc, val) => acc + Math.pow(val - laplacianMean, 2), 0) / laplacianValues.length;
             return variance;
         }
+
+        // --- Helper function to find the centermost face ---
+        function getCentermostFace(detections, videoWidth, videoHeight) {
+            if (!detections || detections.length === 0) return null;
+            if (detections.length === 1) return detections[0];
+
+            const frameCenterX = videoWidth / 2;
+            const frameCenterY = videoHeight / 2;
+
+            let centermostFace = null;
+            let minDistance = Infinity;
+
+            for (const detection of detections) {
+                const faceCenterX = detection.box.x + detection.box.width / 2;
+                const faceCenterY = detection.box.y + detection.box.height / 2;
+                const distance = Math.sqrt(Math.pow(frameCenterX - faceCenterX, 2) + Math.pow(frameCenterY - faceCenterY, 2));
+
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    centermostFace = detection;
+                }
+            }
+            return centermostFace;
+        }
+
 
         // --- UI Update Functions ---
         function updateFileList() {
@@ -159,47 +221,55 @@
             } else {
                 fileListContainer.innerHTML = '<p class="text-gray-500 text-center py-4">분석할 파일을 선택하면 여기에 영상 목록이 표시됩니다.</p>';
             }
-            analyzeButton.disabled = videoFiles.length === 0;
+            analyzeButton.disabled = videoFiles.length === 0 || !modelsLoaded;
         }
         
         function selectVideoForCalibration(index) {
             document.querySelectorAll('.file-item').forEach((item, i) => {
                  item.classList.toggle('selected', i === index);
             });
-            
             const file = videoFiles[index];
             if (file) {
-                if (videoPreview.src) {
-                    URL.revokeObjectURL(videoPreview.src);
-                }
+                if (videoPreview.src) { URL.revokeObjectURL(videoPreview.src); }
                 const fileURL = URL.createObjectURL(file);
                 videoPreview.src = fileURL;
                 videoPreview.style.display = 'block';
             }
         }
         
-        function processFrame() {
-            if (videoPreview.paused || videoPreview.ended) {
+        async function processFrame() {
+            if (videoPreview.paused || videoPreview.ended || !modelsLoaded) {
                 cancelAnimationFrame(animationFrameId);
                 return;
             }
             
-            canvas.width = videoPreview.videoWidth;
-            canvas.height = videoPreview.videoHeight;
-            ctx.drawImage(videoPreview, 0, 0, canvas.width, canvas.height);
+            const detections = await faceapi.detectAllFaces(videoPreview, new faceapi.TinyFaceDetectorOptions());
+            const centermostFace = getCentermostFace(detections, videoPreview.videoWidth, videoPreview.videoHeight);
             
-            const scale = 0.25;
-            const scaledWidth = canvas.width * scale;
-            const scaledHeight = canvas.height * scale;
-            
-            const tempCanvas = document.createElement('canvas');
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCanvas.width = scaledWidth;
-            tempCanvas.height = scaledHeight;
-            tempCtx.drawImage(canvas, 0, 0, scaledWidth, scaledHeight);
-            
-            const score = calculateFocusScore(tempCtx, scaledWidth, scaledHeight);
-            focusScoreEl.textContent = score.toFixed(2);
+            const overlayCtx = overlayCanvas.getContext('2d');
+            overlayCanvas.width = videoPreview.clientWidth;
+            overlayCanvas.height = videoPreview.clientHeight;
+            overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+            if (centermostFace) {
+                const { x, y, width, height } = centermostFace.box;
+
+                const scaleX = overlayCanvas.width / videoPreview.videoWidth;
+                const scaleY = overlayCanvas.height / videoPreview.videoHeight;
+                overlayCtx.strokeStyle = 'rgba(0, 255, 0, 0.7)';
+                overlayCtx.lineWidth = 2;
+                overlayCtx.strokeRect(x * scaleX, y * scaleY, width * scaleX, height * scaleY);
+
+                canvas.width = videoPreview.videoWidth;
+                canvas.height = videoPreview.videoHeight;
+                ctx.drawImage(videoPreview, 0, 0, canvas.width, canvas.height);
+                
+                const faceImageData = ctx.getImageData(x, y, width, height);
+                const score = calculateFocusScore(faceImageData);
+                focusScoreEl.textContent = isNaN(score) ? '계산 불가' : score.toFixed(2);
+            } else {
+                focusScoreEl.textContent = '얼굴 미검출';
+            }
             
             animationFrameId = requestAnimationFrame(processFrame);
         }
@@ -212,7 +282,61 @@
             resultsContainer.scrollTop = resultsContainer.scrollHeight;
         }
 
-        // --- Event Handlers ---
+        function renderCompactResults(resultsData) {
+            compactResultsPlaceholder.classList.add('hidden');
+            compactResultsContainer.innerHTML = '';
+            resultsData.sort((a,b) => b.avgScore - a.avgScore);
+            resultsData.forEach(data => {
+                const item = document.createElement('div');
+                item.className = 'p-2 border-b';
+                
+                const scorePercentage = Math.min(data.avgScore, 200) / 2;
+                
+                item.innerHTML = `
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="truncate pr-4">${data.fileName}</span>
+                        <span class="font-semibold">${data.avgScore.toFixed(2)}</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 mt-1">
+                        <div class="bg-blue-600 h-2.5 rounded-full" style="width: ${scorePercentage}%"></div>
+                    </div>
+                `;
+                compactResultsContainer.appendChild(item);
+            });
+        }
+        
+        function addKeyFramePair(fileName, time, sharpImgDataUrl, blurryImgDataUrl) {
+            keyFramesPlaceholder.classList.add('hidden');
+            const pairContainer = document.createElement('div');
+            pairContainer.className = 'p-3 bg-white rounded-lg shadow-md';
+            
+            const title = document.createElement('h4');
+            title.className = 'font-bold text-md mb-2';
+            title.textContent = `${fileName} @ ${time.toFixed(2)}초`;
+            
+            const imageFlexContainer = document.createElement('div');
+            imageFlexContainer.className = 'flex gap-4';
+            
+            imageFlexContainer.innerHTML = `
+                <div class="flex-1 text-center">
+                    <p class="text-sm font-semibold text-green-600 mb-1">선명 (직전 프레임)</p>
+                    <img src="${sharpImgDataUrl}" class="w-full rounded-md border">
+                </div>
+                <div class="flex-1 text-center">
+                    <p class="text-sm font-semibold text-red-600 mb-1">흐림 (감지된 프레임)</p>
+                    <img src="${blurryImgDataUrl}" class="w-full rounded-md border">
+                </div>
+            `;
+            
+            pairContainer.appendChild(title);
+            pairContainer.appendChild(imageFlexContainer);
+            keyFramesContainer.appendChild(pairContainer);
+            keyFramesContainer.scrollTop = keyFramesContainer.scrollHeight;
+        }
+
+        // --- Event Handlers & Main Logic ---
+        window.onload = loadModels;
+        
         videoFilesInput.addEventListener('change', (event) => {
             const allowedExtensions = ['.mp4', '.mov'];
             videoFiles = Array.from(event.target.files).filter(file => 
@@ -230,25 +354,34 @@
             cancelAnimationFrame(animationFrameId);
             animationFrameId = requestAnimationFrame(processFrame);
         });
+        
+        videoPreview.addEventListener('pause', () => cancelAnimationFrame(animationFrameId));
+        videoPreview.addEventListener('ended', () => cancelAnimationFrame(animationFrameId));
 
         analyzeButton.addEventListener('click', async () => {
-            if (videoFiles.length === 0) {
-                alert('먼저 분석할 영상 파일을 선택해주세요.');
-                return;
-            }
+            if (videoFiles.length === 0) { alert('먼저 분석할 영상 파일을 선택해주세요.'); return; }
+            if (!modelsLoaded) { alert('얼굴 인식 모델이 아직 로딩 중입니다. 잠시 후 다시 시도해주세요.'); return; }
 
             loadingIndicator.style.display = 'flex';
             analyzeButton.disabled = true;
             resultsContainer.innerHTML = '';
-            
+            keyFramesContainer.innerHTML = '';
+            compactResultsContainer.innerHTML = '';
+            keyFramesPlaceholder.classList.remove('hidden');
+            compactResultsPlaceholder.classList.remove('hidden');
+
             const threshold = parseFloat(thresholdSlider.value);
             const problematicVideos = [];
+            const finalResultsData = [];
 
             const analysisVideo = document.createElement('video');
+            analysisVideo.crossOrigin = 'anonymous';
             const analysisCanvas = document.createElement('canvas');
             const analysisCtx = analysisCanvas.getContext('2d', { willReadFrequently: true });
+            const cropCanvas = document.createElement('canvas'); // Canvas for creating cropped images
+            const cropCtx = cropCanvas.getContext('2d');
             analysisVideo.muted = true;
-            analysisVideo.preload = 'auto';
+            analysisVideo.preload = 'metadata';
 
             for (let i = 0; i < videoFiles.length; i++) {
                 const file = videoFiles[i];
@@ -263,50 +396,78 @@
                 });
                 
                 let blurryFrameCount = 0;
-                
-                // ** NEW SAMPLING LOGIC **
-                // Sample every 30 frames, which is roughly 1 second for 30fps video.
-                const SAMPLING_INTERVAL_SECONDS = 1.0;
+                let totalScore = 0;
+                let detectedFrameCount = 0;
+                let previousFrameWasSharp = true;
+                let previousCroppedFrameDataURL = null;
+
+                const SAMPLING_INTERVAL_SECONDS = 0.5;
                 const totalSamples = Math.floor(duration / SAMPLING_INTERVAL_SECONDS);
+                
+                if (totalSamples === 0) {
+                     appendLog(`[WARN] 영상 길이가 너무 짧아 분석할 수 없습니다.`, 'text-yellow-400');
+                }
                 
                 for (let j = 0; j < totalSamples; j++) {
                     const currentTime = j * SAMPLING_INTERVAL_SECONDS;
                     progressText.textContent = `분석 중... (${i + 1}/${videoFiles.length}) - ${file.name} (샘플 ${j + 1}/${totalSamples})`;
                     
-                     await new Promise(resolve => {
-                        analysisVideo.onseeked = resolve;
+                    await new Promise(resolve => {
+                        analysisVideo.onseeked = () => resolve();
                         analysisVideo.currentTime = currentTime;
                     });
-
-                    analysisCanvas.width = analysisVideo.videoWidth;
-                    analysisCanvas.height = analysisVideo.videoHeight;
-                    analysisCtx.drawImage(analysisVideo, 0, 0, analysisCanvas.width, analysisCanvas.height);
                     
-                    const scale = 0.25;
-                    const scaledWidth = analysisCanvas.width * scale;
-                    const scaledHeight = analysisCanvas.height * scale;
-                    const tempCtx = document.createElement('canvas').getContext('2d');
-                    tempCtx.canvas.width = scaledWidth;
-                    tempCtx.canvas.height = scaledHeight;
-                    tempCtx.drawImage(analysisCanvas, 0, 0, scaledWidth, scaledHeight);
+                    const detections = await faceapi.detectAllFaces(analysisVideo, new faceapi.TinyFaceDetectorOptions());
+                    const centermostFace = getCentermostFace(detections, analysisVideo.videoWidth, analysisVideo.videoHeight);
+                    
+                    if (centermostFace) {
+                        analysisCanvas.width = analysisVideo.videoWidth;
+                        analysisCanvas.height = analysisVideo.videoHeight;
+                        analysisCtx.drawImage(analysisVideo, 0, 0, analysisCanvas.width, analysisCanvas.height);
+                        
+                        const { x, y, width, height } = centermostFace.box;
+                        const faceImageData = analysisCtx.getImageData(x, y, width, height);
+                        const score = calculateFocusScore(faceImageData);
 
-                    const score = calculateFocusScore(tempCtx, scaledWidth, scaledHeight);
-                    const isBlurry = score < threshold;
+                        detectedFrameCount++;
+                        totalScore += score;
+                        const isBlurry = score < threshold;
 
-                    if (isBlurry) {
-                        blurryFrameCount++;
-                        appendLog(`  > Time: ${currentTime.toFixed(2)}s | Score: ${score.toFixed(2)} | Status: 흐림`, 'text-red-500');
+                        if (isBlurry) {
+                            blurryFrameCount++;
+                            appendLog(`  > Time: ${currentTime.toFixed(2)}s | Score: ${score.toFixed(2)} | Status: 흐림 (얼굴)`, 'text-red-500');
+                        } else {
+                            appendLog(`  > Time: ${currentTime.toFixed(2)}s | Score: ${score.toFixed(2)} | Status: 선명 (얼굴)`, 'text-green-500');
+                        }
+                        
+                        // Create cropped image data URL for keyframe extraction
+                        cropCanvas.width = width;
+                        cropCanvas.height = height;
+                        cropCtx.putImageData(faceImageData, 0, 0);
+                        const currentCroppedFrameDataURL = cropCanvas.toDataURL('image/jpeg', 0.8);
+
+                        if (previousFrameWasSharp && isBlurry && previousCroppedFrameDataURL) {
+                            addKeyFramePair(file.name, currentTime, previousCroppedFrameDataURL, currentCroppedFrameDataURL);
+                        }
+                        previousFrameWasSharp = !isBlurry;
+                        previousCroppedFrameDataURL = currentCroppedFrameDataURL;
+
                     } else {
-                        appendLog(`  > Time: ${currentTime.toFixed(2)}s | Score: ${score.toFixed(2)} | Status: 선명`, 'text-green-500');
+                        appendLog(`  > Time: ${currentTime.toFixed(2)}s | Status: 얼굴 미검출 (건너뜀)`, 'text-gray-500');
+                        previousFrameWasSharp = true; 
+                        previousCroppedFrameDataURL = null;
                     }
                 }
                 
-                const blurryPercentage = totalSamples > 0 ? (blurryFrameCount / totalSamples) * 100 : 0;
+                const avgScore = detectedFrameCount > 0 ? totalScore / detectedFrameCount : 0;
+                finalResultsData.push({ fileName: file.name, avgScore: avgScore });
+                
+                const blurryPercentage = detectedFrameCount > 0 ? (blurryFrameCount / detectedFrameCount) * 100 : 0;
                 if (blurryPercentage > 10) {
                     problematicVideos.push(file.name);
-                    appendLog(`[RESULT] '${file.name}'에서 포커스 이슈 의심 (흐린 프레임 비율: ${blurryPercentage.toFixed(1)}%)`, 'text-yellow-400 font-bold');
+                    appendLog(`[RESULT] '${file.name}'에서 포커스 이슈 의심 (감지된 프레임 중 흐림 비율: ${blurryPercentage.toFixed(1)}%)`, 'text-yellow-400 font-bold');
                 } else {
-                     appendLog(`[RESULT] '${file.name}' 포커스 양호 (흐린 프레임 비율: ${blurryPercentage.toFixed(1)}%)`, 'text-gray-400');
+                     appendLog(`[RESULT] '${file.name}' 포커스 양호 (감지된 프레임 중 흐림 비율: ${blurryPercentage.toFixed(1)}%)`, 'text-gray-400');
                 }
                 appendLog(`[END] '${file.name}' 분석 완료.`, 'text-cyan-400');
                 appendLog('----------------------------------------------------');
@@ -314,7 +475,6 @@
                 URL.revokeObjectURL(fileURL);
             }
 
-            // --- Display Final Summary ---
             loadingIndicator.style.display = 'none';
             analyzeButton.disabled = false;
             
@@ -326,7 +486,11 @@
                 summaryElement.innerHTML = `<h3 class="text-lg font-semibold text-green-400">분석 완료! 모든 영상의 포커스가 양호합니다.</h3>`;
             }
             resultsContainer.prepend(summaryElement);
-            resultsContainer.scrollTop = 0; // Scroll to top to show summary
+            resultsContainer.scrollTop = 0; 
+            
+            if (finalResultsData.length > 0) {
+                renderCompactResults(finalResultsData);
+            }
         });
 
         // Initialize button state
