@@ -5,5 +5,231 @@
     "avgScore": 125.7728334163165,
     "problematic": false,
     "blurryPercentage": 1.0204081632653061
+  },
+  {
+    "timestamp": "2025-06-26T10:03:33.273Z",
+    "fileName": "0_H4H핸드_Feed (2핸드)3시39분경.mp4",
+    "avgScore": 165.50401940964068,
+    "problematic": true,
+    "blurryPercentage": 22,
+    "frameScores": [
+      {
+        "time": 0,
+        "score": 167.04782563164804
+      },
+      {
+        "time": 0.5,
+        "score": 34.21316852152051
+      },
+      {
+        "time": 15.5,
+        "score": 14.402318471208357
+      },
+      {
+        "time": 17,
+        "score": 207.03299456885105
+      },
+      {
+        "time": 18.5,
+        "score": 40.46281614943221
+      },
+      {
+        "time": 19,
+        "score": 25.707416473057677
+      },
+      {
+        "time": 20,
+        "score": 157.6777503755475
+      },
+      {
+        "time": 21,
+        "score": 57.070114146166944
+      },
+      {
+        "time": 25,
+        "score": 67.25167169943384
+      },
+      {
+        "time": 26,
+        "score": 20.408674336600434
+      },
+      {
+        "time": 59.5,
+        "score": 81.87900103893436
+      },
+      {
+        "time": 60,
+        "score": 98.9390410184215
+      },
+      {
+        "time": 60.5,
+        "score": 136.8386980233091
+      },
+      {
+        "time": 61,
+        "score": 111.45333971060734
+      },
+      {
+        "time": 61.5,
+        "score": 99.43793277836012
+      },
+      {
+        "time": 62,
+        "score": 108.95617375157192
+      },
+      {
+        "time": 62.5,
+        "score": 194.13743338033336
+      },
+      {
+        "time": 63,
+        "score": 87.24609509013443
+      },
+      {
+        "time": 63.5,
+        "score": 117.66103992784512
+      },
+      {
+        "time": 64,
+        "score": 178.2039929219577
+      },
+      {
+        "time": 64.5,
+        "score": 192.59999385993774
+      },
+      {
+        "time": 65,
+        "score": 119.78015829201608
+      },
+      {
+        "time": 65.5,
+        "score": 217.76438828645414
+      },
+      {
+        "time": 66,
+        "score": 157.60183693452566
+      },
+      {
+        "time": 66.5,
+        "score": 127.34118612009514
+      },
+      {
+        "time": 67,
+        "score": 163.1473927434142
+      },
+      {
+        "time": 67.5,
+        "score": 225.8351541410119
+      },
+      {
+        "time": 68,
+        "score": 149.61614149006124
+      },
+      {
+        "time": 68.5,
+        "score": 172.90817199151348
+      },
+      {
+        "time": 69,
+        "score": 111.8070198501858
+      },
+      {
+        "time": 69.5,
+        "score": 142.6879059104175
+      },
+      {
+        "time": 70,
+        "score": 121.32945594760024
+      },
+      {
+        "time": 70.5,
+        "score": 111.1087809384532
+      },
+      {
+        "time": 71,
+        "score": 150.1049138363975
+      },
+      {
+        "time": 71.5,
+        "score": 76.49751863950118
+      },
+      {
+        "time": 72,
+        "score": 48.51493719899187
+      },
+      {
+        "time": 72.5,
+        "score": 16.008837777361144
+      },
+      {
+        "time": 73,
+        "score": 27.970002777069237
+      },
+      {
+        "time": 84.5,
+        "score": 24.010768425095844
+      },
+      {
+        "time": 85,
+        "score": 19.549734439240087
+      },
+      {
+        "time": 87.5,
+        "score": 87.45836467676543
+      },
+      {
+        "time": 88,
+        "score": 77.40413280245852
+      },
+      {
+        "time": 89,
+        "score": 73.91341866365825
+      },
+      {
+        "time": 89.5,
+        "score": 90.14310734982347
+      },
+      {
+        "time": 90,
+        "score": 1016.5002515658854
+      },
+      {
+        "time": 90.5,
+        "score": 109.69431024487359
+      },
+      {
+        "time": 91,
+        "score": 750.2754066673486
+      },
+      {
+        "time": 92,
+        "score": 788.947196217399
+      },
+      {
+        "time": 92.5,
+        "score": 42.78747387403075
+      },
+      {
+        "time": 112.5,
+        "score": 855.8655108055043
+      }
+    ],
+    "keyFrames": [
+      {
+        "time": 0.5,
+        "sharpUrl": "https://raw.githubusercontent.com/garimto81/frame/main/data/images/0_H4H핸드_Feed (2핸드)3시39분경_0.50s_sharp.jpeg",
+        "blurryUrl": "https://raw.githubusercontent.com/garimto81/frame/main/data/images/0_H4H핸드_Feed (2핸드)3시39분경_0.50s_blurry.jpeg"
+      },
+      {
+        "time": 72,
+        "sharpUrl": "https://raw.githubusercontent.com/garimto81/frame/main/data/images/0_H4H핸드_Feed (2핸드)3시39분경_72.00s_sharp.jpeg",
+        "blurryUrl": "https://raw.githubusercontent.com/garimto81/frame/main/data/images/0_H4H핸드_Feed (2핸드)3시39분경_72.00s_blurry.jpeg"
+      },
+      {
+        "time": 92.5,
+        "sharpUrl": "https://raw.githubusercontent.com/garimto81/frame/main/data/images/0_H4H핸드_Feed (2핸드)3시39분경_92.50s_sharp.jpeg",
+        "blurryUrl": "https://raw.githubusercontent.com/garimto81/frame/main/data/images/0_H4H핸드_Feed (2핸드)3시39분경_92.50s_blurry.jpeg"
+      }
+    ]
   }
 ]
