@@ -51,7 +51,7 @@
         <div class="bg-white p-6 rounded-2xl shadow-lg">
              <h2 class="text-xl font-semibold mb-4 border-b pb-2">4. 과거 분석 결과 (GitHub)</h2>
              <p class="text-gray-600 mb-2">GitHub 저장소에 기록된 과거 분석 결과입니다.</p>
-            <div id="sheet-data-container" class="h-96 overflow-y-auto bg-gray-50 rounded-lg p-2 border"><p id="sheet-data-placeholder" class="text-gray-500 text-center py-4">GitHub 정보 입력 후 데이터를 불러옵니다...</p></div>
+            <div id="sheet-data-container" class="h-96 overflow-y-auto bg-gray-50 rounded-lg p-2 border"><p id="sheet-data-placeholder" class="text-gray-500 text-center py-4">GitHub 정보 확인 중...</p></div>
         </div>
     </div>
 
@@ -74,17 +74,16 @@
         const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
 
         // --- GitHub API State ---
-        // =========================================================================================
-        // === 중요: 여기에 당신의 GitHub 정보를 입력하세요 ===
-        // =========================================================================================
+        // 이 값들은 GitHub Actions에 의해 빌드 시점에 실제 Secret 값으로 대체됩니다.
         const GITHUB_CONFIG = {
-            owner: 'garimto81', // 당신의 GitHub 사용자 이름
-            repo: 'frame', // 1단계에서 만든 저장소 이름
-            token: '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', // 2단계에서 만든 Personal Access Token
-            resultsPath: 'data/results.json', // 결과 데이터 파일 경로
-            imagesPath: 'data/images' // 이미지 저장 폴더 경로
+            owner: 'garimto81', // 당신의 GitHub 사용자 이름 (이것도 Secret으로 관리 가능)
+            repo: 'frame',  // 당신의 저장소 이름 (이것도 Secret으로 관리 가능)
+            token: '#{GITHUB_TOKEN_PLACEHOLDER}#', // GitHub PAT 플레이스홀더
+            resultsPath: 'data/results.json',
+            imagesPath: 'data/images'
         };
-        // =========================================================================================
+        // 참고: Google API 관련 키는 이 버전에서 제거되었습니다.
+        // 만약 Google 로그인이 필요하다면, 동일한 방식으로 플레이스홀더를 추가하면 됩니다.
 
         const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/`;
         const GITHUB_HEADERS = {
@@ -95,8 +94,9 @@
         // --- Model Initialization ---
         async function loadFaceApiModels() {
             try {
-                if (!GITHUB_CONFIG.owner || GITHUB_CONFIG.owner === 'YOUR_GITHUB_USERNAME' || !GITHUB_CONFIG.token || GITHUB_CONFIG.token === 'YOUR_PERSONAL_ACCESS_TOKEN') {
-                     modelStatus.textContent = '오류: 코드에 GitHub 정보를 먼저 입력해야 합니다.';
+                // 플레이스홀더가 실제 값으로 대체되었는지 확인
+                if (GITHUB_CONFIG.token.includes('PLACEHOLDER')) {
+                     modelStatus.textContent = '오류: GitHub Actions를 통해 배포해야 합니다.';
                      modelStatus.className = 'text-lg text-red-600 mt-2';
                      return;
                 }
@@ -117,13 +117,13 @@
         async function getFileFromGitHub(path) {
             try {
                 const response = await fetch(GITHUB_API_URL + path, { headers: GITHUB_HEADERS });
-                if (response.status === 404) return null; // File not found is an expected case
+                if (response.status === 404) return null;
                 if (!response.ok) throw new Error(`GitHub API Error: ${response.status} ${response.statusText}`);
                 return await response.json();
             } catch (error) {
                 console.error('GitHub 파일 읽기 오류:', error);
                 appendLog(`[ERROR] GitHub 파일 읽기 실패: ${path}. Token 권한을 확인하세요.`, 'text-red-500');
-                return 'error'; // Return a specific error signal
+                return 'error';
             }
         }
 
@@ -131,7 +131,7 @@
             const body = {
                 message: commitMessage,
                 content: btoa(unescape(encodeURIComponent(content))),
-                sha: sha // Will be null for new files
+                sha: sha
             };
             try {
                 const response = await fetch(GITHUB_API_URL + path, {
@@ -150,7 +150,7 @@
         async function uploadImageToGitHub(path, content, commitMessage) {
              const body = {
                 message: commitMessage,
-                content: content.split(',')[1] // Remove the base64 prefix
+                content: content.split(',')[1]
             };
              try {
                 const response = await fetch(GITHUB_API_URL + path, {
@@ -166,40 +166,26 @@
             }
         }
         
-        // **NEW**: Initialize GitHub file structure if it doesn't exist
         async function initializeAndLoadGitHubData() {
             sheetDataPlaceholder.textContent = 'GitHub에서 분석 기록을 확인합니다...';
             let resultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsPath);
 
-            // If file check resulted in an error, stop.
             if (resultsFile === 'error') {
                 sheetDataPlaceholder.textContent = 'GitHub 저장소 접근에 실패했습니다. 설정을 확인하세요.';
                 return;
             }
 
-            // If results.json doesn't exist, create it with an empty array.
             if (resultsFile === null) {
                 appendLog(`[INFO] '${GITHUB_CONFIG.resultsPath}' 파일을 찾을 수 없습니다. 새로 생성합니다.`, 'text-yellow-400');
-                await updateFileOnGitHub(
-                    GITHUB_CONFIG.resultsPath,
-                    '[]', // Initial content: an empty JSON array
-                    null, // No sha for new file
-                    'Initialize results.json'
-                );
+                await updateFileOnGitHub(GITHUB_CONFIG.resultsPath, '[]', null, 'Initialize results.json');
                 resultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsPath);
             }
 
-            // Also ensure the images directory exists by creating a .gitkeep file
             const imageDirKeepPath = `${GITHUB_CONFIG.imagesPath}/.gitkeep`;
             const keepFile = await getFileFromGitHub(imageDirKeepPath);
             if (keepFile === null) {
                 appendLog(`[INFO] 이미지 저장 폴더를 초기화합니다.`, 'text-yellow-400');
-                await updateFileOnGitHub(
-                    imageDirKeepPath,
-                    '', // Empty content for .gitkeep
-                    null,
-                    'Initialize images directory'
-                );
+                await updateFileOnGitHub(imageDirKeepPath, '', null, 'Initialize images directory');
             }
 
             if(resultsFile && resultsFile.content) {
