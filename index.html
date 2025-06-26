@@ -177,13 +177,17 @@
             } catch (error) { console.error('GitHub 파일 업데이트 오류:', error); appendLog(`[ERROR] GitHub 파일 업데이트 실패: ${path}. 상세 정보: ${error.message}`, 'text-red-500'); }
         }
 
+        // **MODIFIED**: Fixed typo and enhanced logging
         async function uploadImageToGitHub(path, content, commitMessage) {
              const body = { message: commitMessage, content: content.split(',')[1] };
              try {
-                const response = await fetch(GITHUB_API_URL + path, { method: 'PUT', headers: GHTML_HEADERS, body: JSON.stringify(body) });
-                 if (!response.ok) throw new Error(`GitHub API Error: ${response.status} ${response.statusText}`);
-                 const result = await response.json();
-                 return result.content.download_url; // Return the download URL for the image
+                appendLog(`[INFO] 이미지 업로드 시도: ${path}`, 'text-gray-400');
+                // **FIXED**: Corrected typo from GHTML_HEADERS to GITHUB_HEADERS
+                const response = await fetch(GITHUB_API_URL + path, { method: 'PUT', headers: GITHUB_HEADERS, body: JSON.stringify(body) });
+                if (!response.ok) throw new Error(`GitHub API Error: ${response.status} ${response.statusText}`);
+                const result = await response.json();
+                appendLog(`[SUCCESS] 이미지 업로드 완료: ${result.content.name}`, 'text-green-400');
+                return result.content.download_url; // Return the download URL for the image
             } catch (error) {
                 console.error('GitHub 이미지 업로드 오류:', error);
                 appendLog(`[ERROR] GitHub 이미지 업로드 실패: ${path}. 상세 정보: ${error.message}`, 'text-red-500');
@@ -219,7 +223,7 @@
         }
 
         // --- Core Logic & UI ---
-        function calculateFocusScore(imageData) { /* ... (same as before) ... */
+        function calculateFocusScore(imageData) {
              const { width, height, data } = imageData;
             if (width === 0 || height === 0) return 0;
             const gray = new Uint8Array(width * height);
@@ -239,7 +243,7 @@
             return laplacianValues.reduce((acc, val) => acc + Math.pow(val - laplacianMean, 2), 0) / laplacianValues.length;
         }
 
-        function getCentermostFace(detections, videoWidth, videoHeight) { /* ... (same as before) ... */
+        function getCentermostFace(detections, videoWidth, videoHeight) {
             if (!detections || detections.length === 0) return null;
             if (detections.length === 1) return detections[0];
             const frameCenterX = videoWidth / 2, frameCenterY = videoHeight / 2;
@@ -278,7 +282,10 @@
                 <th scope="col" class="px-6 py-3">흐림 비율 (%)</th>
             </tr></thead>`;
             const tbody = document.createElement('tbody');
-            resultsData.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).forEach((row, index) => {
+            const sortedData = resultsData.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            allAnalysisData = sortedData; // Update cache with sorted data
+            
+            sortedData.forEach((row, index) => {
                 const tr = document.createElement('tr');
                 tr.className = 'bg-white border-b result-row';
                 tr.dataset.resultIndex = index; // Use index to find data in the sorted array
@@ -294,15 +301,12 @@
             table.appendChild(tbody);
             sheetDataContainer.appendChild(table);
 
-            // Add event listener to rows
             sheetDataContainer.querySelectorAll('.result-row').forEach(row => {
                 row.addEventListener('click', (e) => {
-                    // Highlight selected row
                      sheetDataContainer.querySelectorAll('.result-row').forEach(r => r.classList.remove('selected'));
                      row.classList.add('selected');
-
                     const resultIndex = parseInt(e.currentTarget.dataset.resultIndex);
-                    const selectedResult = resultsData[resultIndex];
+                    const selectedResult = allAnalysisData[resultIndex]; // Use the cached sorted data
                     renderDetailedKeyFrames(selectedResult);
                 });
             });
@@ -428,11 +432,14 @@
                         const cleanFileName = file.name.split('.').slice(0, -1).join('');
                         const sharpFileName = `${cleanFileName}_${kf.time.toFixed(2)}s_sharp.jpeg`;
                         const blurryFileName = `${cleanFileName}_${kf.time.toFixed(2)}s_blurry.jpeg`;
-                        const sharpUrl = `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/main/${GITHUB_CONFIG.imagesPath}/${sharpFileName}`;
-                        const blurryUrl = `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/main/${GITHUB_CONFIG.imagesPath}/${blurryFileName}`;
-                        await uploadImageToGitHub(`${GITHUB_CONFIG.imagesPath}/${sharpFileName}`, kf.sharpDataURL, `upload ${sharpFileName}`);
-                        await uploadImageToGitHub(`${GITHUB_CONFIG.imagesPath}/${blurryFileName}`, kf.blurryDataURL, `upload ${blurryFileName}`);
-                        uploadedKeyFrames.push({time: kf.time, sharpUrl, blurryUrl});
+                        
+                        // **MODIFIED**: Await the URLs from the upload function
+                        const sharpUrl = await uploadImageToGitHub(`${GITHUB_CONFIG.imagesPath}/${sharpFileName}`, kf.sharpDataURL, `upload ${sharpFileName}`);
+                        const blurryUrl = await uploadImageToGitHub(`${GITHUB_CONFIG.imagesPath}/${blurryFileName}`, kf.blurryDataURL, `upload ${blurryFileName}`);
+                        
+                        if (sharpUrl && blurryUrl) {
+                             uploadedKeyFrames.push({time: kf.time, sharpUrl, blurryUrl});
+                        }
                      }
                 }
 
@@ -443,7 +450,7 @@
                     problematic: blurryPercentage > 10,
                     blurryPercentage: blurryPercentage,
                     frameScores: frameScores.map(d => ({time: d.time, score: d.score})),
-                    keyFrames: uploadedKeyFrames
+                    keyFrames: uploadedKeyFrames // Store the returned URLs
                 };
 
                 const existingResultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsPath);
