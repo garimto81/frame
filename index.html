@@ -3,16 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>포커스 이슈 탐지기 (Google Drive 연동)</title>
+    <title>포커스 이슈 탐지기 (GitHub 연동)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <!-- Face Recognition Library -->
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-    
-    <!-- Google API Client Libraries -->
-    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
-    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
-
     <style>
         body { font-family: 'Noto Sans KR', sans-serif; }
         .loader { border: 5px solid #f3f3f3; border-top: 5px solid #3498db; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
@@ -23,13 +18,8 @@
 
     <div class="container mx-auto p-4 md:p-8 max-w-6xl">
         <header class="text-center mb-8">
-            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">포커스 이슈 탐지기</h1>
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">포커스 이슈 탐지기 (GitHub 연동)</h1>
             <p id="model-status" class="text-lg text-yellow-600 mt-2">인식 모델 로딩 중...</p>
-            <div class="mt-4">
-                <button id="authorize_button" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow hover:bg-blue-700 hidden">Google 계정으로 로그인</button>
-                <button id="signout_button" class="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg shadow hover:bg-gray-600 hidden">로그아웃</button>
-            </div>
-             <p id="auth-status" class="text-sm text-gray-500 mt-2"></p>
         </header>
 
         <div class="bg-white p-6 rounded-2xl shadow-lg mb-8">
@@ -48,7 +38,7 @@
                 </div>
             </div>
             <button id="analyze-button" class="bg-green-600 text-white font-bold py-3 px-8 rounded-full hover:bg-green-700 transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed">
-                분석 및 Google Drive에 저장
+                분석 및 GitHub에 저장
             </button>
              <div id="loading-indicator" class="hidden mt-4 flex flex-col items-center"><div class="loader"></div><p id="progress-text" class="text-gray-600 mt-2"></p></div>
         </div>
@@ -59,9 +49,9 @@
         </div>
         
         <div class="bg-white p-6 rounded-2xl shadow-lg">
-             <h2 class="text-xl font-semibold mb-4 border-b pb-2">4. 과거 분석 결과 (Google Sheets)</h2>
-             <p class="text-gray-600 mb-2">Google Sheets에 저장된 과거 분석 기록입니다.</p>
-            <div id="sheet-data-container" class="h-96 overflow-y-auto bg-gray-50 rounded-lg p-2 border"><p id="sheet-data-placeholder" class="text-gray-500 text-center py-4">Google 로그인 후 데이터를 불러옵니다...</p></div>
+             <h2 class="text-xl font-semibold mb-4 border-b pb-2">4. 과거 분석 결과 (GitHub)</h2>
+             <p class="text-gray-600 mb-2">GitHub 저장소에 기록된 과거 분석 결과입니다.</p>
+            <div id="sheet-data-container" class="h-96 overflow-y-auto bg-gray-50 rounded-lg p-2 border"><p id="sheet-data-placeholder" class="text-gray-500 text-center py-4">GitHub 정보 입력 후 데이터를 불러옵니다...</p></div>
         </div>
     </div>
 
@@ -74,75 +64,48 @@
         const loadingIndicator = document.getElementById('loading-indicator');
         const progressText = document.getElementById('progress-text');
         const modelStatus = document.getElementById('model-status');
-        const authStatus = document.getElementById('auth-status');
         const resultsContainer = document.getElementById('results-container');
         const sheetDataContainer = document.getElementById('sheet-data-container');
         const sheetDataPlaceholder = document.getElementById('sheet-data-placeholder');
-        const authorizeButton = document.getElementById('authorize_button');
-        const signoutButton = document.getElementById('signout_button');
 
         // --- Global State ---
         let videoFiles = [];
         let modelsLoaded = false;
         const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
 
-        // --- Google API State ---
+        // --- GitHub API State ---
         // =========================================================================================
-        // === 중요: 1단계 - 여기에 당신의 API 키와 클라이언트 ID를 입력하세요 ===
-        // 팁: redirect_uri_mismatch 오류 방지를 위해 Cloud Console에 http://127.0.0.1:포트 와 http://localhost:포트 를 모두 등록하세요.
+        // === 중요: 여기에 당신의 GitHub 정보를 입력하세요 ===
         // =========================================================================================
-        const API_KEY = 'AIzaSyBUmKuZjPq-VZtZJplJMvnxGnJM09RY1V4'; // Google Cloud Console에서 발급받은 API 키
-        const CLIENT_ID = '716495246752-bdfv696aer0734ie02j772qk414sh069.apps.googleusercontent.com'; // Google Cloud Console에서 발급받은 OAuth 2.0 클라이언트 ID
+        const GITHUB_CONFIG = {
+            owner: 'garimto81', // 당신의 GitHub 사용자 이름
+            repo: 'frame', // 1단계에서 만든 저장소 이름
+            token: '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', // 2단계에서 만든 Personal Access Token
+            resultsPath: 'data/results.json', // 결과 데이터 파일 경로
+            imagesPath: 'data/images' // 이미지 저장 폴더 경로
+        };
         // =========================================================================================
-        
-        const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest", "https://sheets.googleapis.com/$discovery/rest?version=v4"];
-        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
-        const APP_FOLDER_NAME = '포커스 분석 결과';
-        const APP_SHEET_NAME = 'Focus Analysis Report';
-        const IMAGE_FOLDER_NAME = '주요 프레임 이미지';
 
-        let tokenClient;
-        let gapiInited = false;
-        let gisInited = false;
-        let appFolderId = null;
-        let imageFolderId = null;
-        let spreadsheetId = null;
-
-        // --- Model & API Initialization ---
-        window.gapiLoaded = () => gapi.load('client', initializeGapiClient);
-        window.gisLoaded = () => {
-            tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: CLIENT_ID,
-                scope: SCOPES,
-                callback: gapiAuthCallback,
-            });
-            gisInited = true;
-            maybeEnableAuthButtons();
+        const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/`;
+        const GITHUB_HEADERS = {
+            'Authorization': `token ${GITHUB_CONFIG.token}`,
+            'Accept': 'application/vnd.github.v3+json',
         };
 
-        async function initializeGapiClient() {
-            if (API_KEY === 'YOUR_API_KEY' || CLIENT_ID === 'YOUR_CLIENT_ID') {
-                modelStatus.textContent = '오류: 코드에 API 키와 클라이언트 ID를 입력해야 합니다.';
-                modelStatus.className = 'text-lg text-red-600 mt-2';
-                return;
-            }
-            await gapi.client.init({ apiKey: API_KEY, discoveryDocs: DISCOVERY_DOCS });
-            gapiInited = true;
-            maybeEnableAuthButtons();
-        }
-        
-        function maybeEnableAuthButtons() {
-            if (gapiInited && gisInited) {
-                authorizeButton.style.display = 'block';
-            }
-        }
-        
+        // --- Model Initialization ---
         async function loadFaceApiModels() {
             try {
+                if (!GITHUB_CONFIG.owner || GITHUB_CONFIG.owner === 'YOUR_GITHUB_USERNAME') {
+                     modelStatus.textContent = '오류: 코드에 GitHub 정보를 먼저 입력해야 합니다.';
+                     modelStatus.className = 'text-lg text-red-600 mt-2';
+                     return;
+                }
                 await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
                 modelsLoaded = true;
-                modelStatus.textContent = '얼굴 인식 모델 로딩 완료! Google 계정으로 로그인해주세요.';
+                modelStatus.textContent = '얼굴 인식 모델 로딩 완료! 분석할 영상을 선택하세요.';
                 modelStatus.className = 'text-lg text-green-600 mt-2';
+                updateAnalyzeButtonState();
+                loadResultsFromGitHub();
             } catch (error) {
                 modelStatus.textContent = '얼굴 인식 모델 로딩 실패. 새로고침 해주세요.';
                 modelStatus.className = 'text-lg text-red-600 mt-2';
@@ -150,156 +113,70 @@
             }
         }
         
-        // --- Authentication ---
-        authorizeButton.onclick = () => tokenClient.requestAccessToken({ prompt: 'consent' });
-        signoutButton.onclick = () => {
-             const token = gapi.client.getToken();
-             if (token !== null) {
-                google.accounts.oauth2.revoke(token.access_token, () => {
-                    gapi.client.setToken('');
-                    authorizeButton.style.display = 'block';
-                    signoutButton.style.display = 'none';
-                    authStatus.textContent = '';
-                    sheetDataContainer.innerHTML = '<p id="sheet-data-placeholder" class="text-gray-500 text-center py-4">Google 로그인 후 데이터를 불러옵니다...</p>';
-                    updateAnalyzeButtonState();
-                });
-             }
-        };
+        // --- GitHub API Functions ---
+        async function getFileFromGitHub(path) {
+            try {
+                const response = await fetch(GITHUB_API_URL + path, { headers: GITHUB_HEADERS });
+                if (response.status === 404) return null; // File not found
+                if (!response.ok) throw new Error(`GitHub API Error: ${response.statusText}`);
+                return await response.json();
+            } catch (error) {
+                console.error('GitHub 파일 읽기 오류:', error);
+                appendLog(`[ERROR] GitHub 파일 읽기 실패: ${path}`, 'text-red-500');
+                return null;
+            }
+        }
 
-        // **MODIFIED**: Added detailed logging to the authentication callback
-        async function gapiAuthCallback(resp) {
-            if (resp.error !== undefined) {
-                // Log the entire error object to the browser's developer console
-                console.error('Google Auth Error Details:', resp); 
-                
-                // Display a more user-friendly error message with specific details if available
-                let errorMessage = `인증 오류: ${resp.error}.`;
-                if(resp.details) {
-                    errorMessage += ` 상세정보: ${resp.details}`;
-                }
-                errorMessage += ` 브라우저 개발자 콘솔(F12)에서 전체 오류 객체를 확인하세요.`;
-                
-                authStatus.textContent = errorMessage;
-                authStatus.className = 'text-sm text-red-500 mt-2';
-                
-                // Throw the error to stop further execution
-                throw (resp);
-             }
-            authorizeButton.style.display = 'none';
-            signoutButton.style.display = 'block';
-            authStatus.textContent = 'Google 계정으로 로그인되었습니다.';
-            await setupGoogleDrive();
-            await loadSheetData();
-            updateAnalyzeButtonState();
+        async function updateFileOnGitHub(path, content, sha, commitMessage) {
+            const body = {
+                message: commitMessage,
+                content: btoa(unescape(encodeURIComponent(content))), // Encode to Base64
+                sha: sha
+            };
+            try {
+                await fetch(GITHUB_API_URL + path, {
+                    method: 'PUT',
+                    headers: GITHUB_HEADERS,
+                    body: JSON.stringify(body)
+                });
+                appendLog(`[INFO] '${path}' 파일 업데이트 완료`, 'text-blue-400');
+            } catch (error) {
+                console.error('GitHub 파일 업데이트 오류:', error);
+                appendLog(`[ERROR] GitHub 파일 업데이트 실패: ${path}`, 'text-red-500');
+            }
+        }
+
+        async function uploadImageToGitHub(path, content, commitMessage) {
+             const body = {
+                message: commitMessage,
+                content: content.split(',')[1] // Remove the base64 prefix
+            };
+             try {
+                await fetch(GITHUB_API_URL + path, {
+                    method: 'PUT',
+                    headers: GITHUB_HEADERS,
+                    body: JSON.stringify(body)
+                });
+                appendLog(`[INFO] 이미지 업로드 완료: ${path}`, 'text-blue-400');
+            } catch (error) {
+                console.error('GitHub 이미지 업로드 오류:', error);
+                appendLog(`[ERROR] GitHub 이미지 업로드 실패: ${path}`, 'text-red-500');
+            }
         }
         
-        // --- Google Drive & Sheets Setup ---
-        async function findOrCreate(name, mimeType, parentId = null) {
-            let query = `name = '${name}' and mimeType = '${mimeType}' and trashed = false`;
-            if (parentId) query += ` and '${parentId}' in parents`;
-
-            const response = await gapi.client.drive.files.list({ q: query, fields: 'files(id, name)' });
-            if (response.result.files.length > 0) {
-                appendLog(`[INFO] '${name}' 찾음 (ID: ${response.result.files[0].id})`, 'text-gray-400');
-                return response.result.files[0].id;
+        async function loadResultsFromGitHub() {
+            sheetDataPlaceholder.textContent = 'GitHub에서 분석 기록을 불러옵니다...';
+            const fileData = await getFileFromGitHub(GITHUB_CONFIG.resultsPath);
+            if(fileData && fileData.content) {
+                const content = decodeURIComponent(escape(atob(fileData.content)));
+                const results = JSON.parse(content);
+                renderGitHubResults(results.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)));
             } else {
-                appendLog(`[INFO] '${name}' 생성 중...`, 'text-yellow-400');
-                const fileMetadata = { name: name, mimeType: mimeType };
-                if (parentId) fileMetadata.parents = [parentId];
-                const file = await gapi.client.drive.files.create({ resource: fileMetadata, fields: 'id' });
-                appendLog(`[INFO] '${name}' 생성 완료 (ID: ${file.result.id})`, 'text-green-400');
-                return file.result.id;
-            }
-        }
-        
-        async function createSheetWithHeaders(id) {
-            const values = [["분석 일시", "파일 이름", "평균 점수", "문제 여부", "흐린 프레임 비율 (%)"]];
-            const body = { values: values };
-            await gapi.client.sheets.spreadsheets.values.update({
-                spreadsheetId: id,
-                range: 'A1',
-                valueInputOption: 'USER_ENTERED',
-                resource: body,
-            });
-        }
-        
-        async function setupGoogleDrive() {
-            try {
-                appFolderId = await findOrCreate(APP_FOLDER_NAME, 'application/vnd.google-apps.folder');
-                imageFolderId = await findOrCreate(IMAGE_FOLDER_NAME, 'application/vnd.google-apps.folder', appFolderId);
-                spreadsheetId = await findOrCreate(APP_SHEET_NAME, 'application/vnd.google-apps.spreadsheet', appFolderId);
-                
-                const sheet = await gapi.client.sheets.spreadsheets.get({ spreadsheetId: spreadsheetId, ranges: [] });
-                if (sheet.result.sheets.length === 1 && sheet.result.sheets[0].properties.title === 'Sheet1') {
-                     await createSheetWithHeaders(spreadsheetId);
-                }
-            } catch (err) {
-                console.error("Google Drive setup failed:", err);
-                appendLog(`[ERROR] Google Drive 설정 실패: ${err.result.error.message}`, 'text-red-500');
-            }
-        }
-        
-        async function loadSheetData() {
-            if (!spreadsheetId) {
-                sheetDataContainer.innerHTML = '<p id="sheet-data-placeholder" class="text-gray-500 text-center py-4">Google 시트 정보를 찾을 수 없습니다.</p>';
-                return;
-            }
-            try {
-                const response = await gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: spreadsheetId, range: 'A:E' });
-                document.getElementById('sheet-data-placeholder').classList.add('hidden');
-                sheetDataContainer.innerHTML = '';
-                const rows = response.result.values || [];
-                if(rows.length <= 1) { 
-                    sheetDataContainer.innerHTML = '<p class="text-gray-500 text-center py-4">아직 저장된 분석 기록이 없습니다.</p>';
-                    return;
-                }
-                
-                const table = document.createElement('table');
-                table.className = 'w-full text-sm text-left text-gray-500';
-                table.innerHTML = `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>${rows[0].map(h => `<th scope="col" class="px-6 py-3">${h}</th>`).join('')}</tr></thead>`;
-                const tbody = document.createElement('tbody');
-                rows.slice(1).reverse().forEach(row => { // Show newest first
-                    const tr = document.createElement('tr');
-                    tr.className = 'bg-white border-b';
-                    tr.innerHTML = row.map(cell => `<td class="px-6 py-4">${cell}</td>`).join('');
-                    tbody.appendChild(tr);
-                });
-                table.appendChild(tbody);
-                sheetDataContainer.appendChild(table);
-
-            } catch(e) {
-                 console.error("Error loading sheet data", e);
-                 sheetDataContainer.innerHTML = '<p class="text-gray-500 text-center py-4">시트 데이터 로딩 중 오류가 발생했습니다.</p>';
-            }
-        }
-        
-        async function uploadImageToDrive(folderId, fileName, base64Data) {
-            const metadata = { name: fileName, parents: [folderId] };
-            const base64 = base64Data.split(',')[1];
-            const boundary = '-------314159265358979323846';
-            const delimiter = "\r\n--" + boundary + "\r\n";
-            const close_delim = "\r\n--" + boundary + "--";
-
-            var multipartRequestBody = delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) + delimiter + 'Content-Type: image/jpeg\r\n' + 'Content-Transfer-Encoding: base64\r\n' + '\r\n' + base64 + close_delim;
-
-            const request = gapi.client.request({
-                'path': '/upload/drive/v3/files',
-                'method': 'POST',
-                'params': {'uploadType': 'multipart'},
-                'headers': {'Content-Type': 'multipart/related; boundary="' + boundary + '"'},
-                'body': multipartRequestBody
-            });
-            
-            try {
-                await request;
-                appendLog(`[INFO] '${fileName}' 이미지를 Drive에 업로드했습니다.`, 'text-blue-400');
-            } catch(err) {
-                 console.error("Image upload failed", err);
-                 appendLog(`[ERROR] 이미지 업로드 실패: ${err.result.error.message}`, 'text-red-500');
+                 sheetDataPlaceholder.textContent = '아직 저장된 분석 기록이 없습니다.';
             }
         }
 
-        // --- Core Logic & Helpers ---
+        // --- Core Logic & UI ---
         function calculateFocusScore(imageData) {
             const { width, height, data } = imageData;
             if (width === 0 || height === 0) return 0;
@@ -335,7 +212,44 @@
         }
 
         function updateAnalyzeButtonState() {
-            analyzeButton.disabled = videoFiles.length === 0 || !modelsLoaded || !gapi.client.getToken();
+            analyzeButton.disabled = videoFiles.length === 0 || !modelsLoaded;
+        }
+        
+        function appendLog(message, colorClass = 'text-gray-400') {
+            const logEntry = document.createElement('div');
+            logEntry.textContent = `> ${message}`;
+            logEntry.className = colorClass;
+            resultsContainer.appendChild(logEntry);
+            resultsContainer.scrollTop = resultsContainer.scrollHeight;
+        }
+
+        function renderGitHubResults(resultsData) {
+            sheetDataPlaceholder.classList.add('hidden');
+            sheetDataContainer.innerHTML = '';
+             const table = document.createElement('table');
+            table.className = 'w-full text-sm text-left text-gray-500';
+            table.innerHTML = `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>
+                <th scope="col" class="px-6 py-3">분석 일시</th>
+                <th scope="col" class="px-6 py-3">파일 이름</th>
+                <th scope="col" class="px-6 py-3">평균 점수</th>
+                <th scope="col" class="px-6 py-3">문제 여부</th>
+                <th scope="col" class="px-6 py-3">흐림 비율 (%)</th>
+            </tr></thead>`;
+            const tbody = document.createElement('tbody');
+            resultsData.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = 'bg-white border-b';
+                tr.innerHTML = `
+                    <td class="px-6 py-4">${new Date(row.timestamp).toLocaleString('ko-KR')}</td>
+                    <td class="px-6 py-4">${row.fileName}</td>
+                    <td class="px-6 py-4">${row.avgScore.toFixed(2)}</td>
+                    <td class="px-6 py-4">${row.problematic ? 'Yes' : 'No'}</td>
+                    <td class="px-6 py-4">${row.blurryPercentage.toFixed(1)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+            sheetDataContainer.appendChild(table);
         }
 
         // --- Event Handlers & Main Analysis Logic ---
@@ -348,7 +262,6 @@
 
         analyzeButton.addEventListener('click', async () => {
             if (videoFiles.length === 0) { alert('먼저 분석할 영상 파일을 선택해주세요.'); return; }
-            if (!gapi.client.getToken()) { alert('Google 계정으로 먼저 로그인해주세요.'); return; }
 
             loadingIndicator.style.display = 'flex';
             analyzeButton.disabled = true;
@@ -412,8 +325,8 @@
                             const cleanFileName = file.name.split('.').slice(0, -1).join('');
                             const sharpFileName = `${cleanFileName}_${currentFrame.time.toFixed(2)}s_sharp.jpeg`;
                             const blurryFileName = `${cleanFileName}_${currentFrame.time.toFixed(2)}s_blurry.jpeg`;
-                            await uploadImageToDrive(imageFolderId, sharpFileName, previousFrame.dataURL);
-                            await uploadImageToDrive(imageFolderId, blurryFileName, currentFrame.dataURL);
+                            await uploadImageToGitHub(`${GITHUB_CONFIG.imagesPath}/${sharpFileName}`, previousFrame.dataURL, `upload ${sharpFileName}`);
+                            await uploadImageToGitHub(`${GITHUB_CONFIG.imagesPath}/${blurryFileName}`, currentFrame.dataURL, `upload ${blurryFileName}`);
                         }
                         previousFrame = currentFrame;
 
@@ -427,19 +340,28 @@
                 const blurryFrameCount = frameScores.filter(f => f.isBlurry).length;
                 const blurryPercentage = detectedFrameCount > 0 ? (blurryFrameCount / detectedFrameCount) * 100 : 0;
                 
-                const valuesToAppend = [[
-                    new Date().toLocaleString('ko-KR'),
-                    file.name,
-                    detectedFrameCount > 0 ? (totalScore / detectedFrameCount).toFixed(2) : 0,
-                    blurryPercentage > 10 ? 'Yes' : 'No',
-                    blurryPercentage.toFixed(1)
-                ]];
-                await gapi.client.sheets.spreadsheets.values.append({
-                    spreadsheetId: spreadsheetId,
-                    range: 'A1',
-                    valueInputOption: 'USER_ENTERED',
-                    resource: { values: valuesToAppend },
-                });
+                const newResult = {
+                    timestamp: new Date().toISOString(),
+                    fileName: file.name,
+                    avgScore: detectedFrameCount > 0 ? totalScore / detectedFrameCount : 0,
+                    problematic: blurryPercentage > 10,
+                    blurryPercentage: blurryPercentage
+                };
+
+                // Update results.json on GitHub
+                const existingResultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsPath);
+                let allResults = [];
+                if (existingResultsFile) {
+                    allResults = JSON.parse(decodeURIComponent(escape(atob(existingResultsFile.content))));
+                }
+                allResults.push(newResult);
+                
+                await updateFileOnGitHub(
+                    GITHUB_CONFIG.resultsPath,
+                    JSON.stringify(allResults, null, 2),
+                    existingResultsFile ? existingResultsFile.sha : null,
+                    `Add analysis for ${file.name}`
+                );
                 
                 URL.revokeObjectURL(fileURL);
                 appendLog(`[END] '${file.name}' 분석 완료.`, 'text-cyan-400');
@@ -450,7 +372,7 @@
             analyzeButton.disabled = false;
             videoFiles = []; 
             updateAnalyzeButtonState();
-            await loadSheetData(); // Refresh sheet data after analysis
+            await loadResultsFromGitHub(); // Refresh data after analysis
         });
 
         // --- Initial Load ---
@@ -458,4 +380,4 @@
 
     </script>
 </body>
-</ht
+</html>
