@@ -3,18 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>포커스 이슈 탐지기 (DB 연동) | Focus Issue Detector</title>
+    <title>포커스 이슈 탐지기 (Google Drive 연동)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <!-- Face Recognition Library -->
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    
+    <!-- Google API Client Libraries -->
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+
     <style>
         body { font-family: 'Noto Sans KR', sans-serif; }
         .loader { border: 5px solid #f3f3f3; border-top: 5px solid #3498db; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .file-item.selected { background-color: #dbeafe; }
-        /* Custom Modal Styles */
-        #confirm-modal-backdrop { background-color: rgba(0, 0, 0, 0.5); }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -22,12 +24,17 @@
     <div class="container mx-auto p-4 md:p-8 max-w-6xl">
         <header class="text-center mb-8">
             <h1 class="text-3xl md:text-4xl font-bold text-gray-900">포커스 이슈 탐지기</h1>
-            <p id="model-status" class="text-lg text-yellow-600 mt-2">인식 모델 및 DB 연결 중...</p>
+            <p id="model-status" class="text-lg text-yellow-600 mt-2">인식 모델 로딩 중...</p>
+            <div class="mt-4">
+                <button id="authorize_button" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow hover:bg-blue-700 hidden">Google 계정으로 로그인</button>
+                <button id="signout_button" class="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg shadow hover:bg-gray-600 hidden">로그아웃</button>
+            </div>
+             <p id="auth-status" class="text-sm text-gray-500 mt-2"></p>
         </header>
 
         <div class="bg-white p-6 rounded-2xl shadow-lg mb-8">
             <h2 class="text-xl font-semibold mb-4 border-b pb-2">1. 영상 파일 선택</h2>
-            <p class="text-gray-600 mb-4">분석할 영상 클립(.mov, .mp4 등)을 선택해주세요. (Ctrl 또는 Shift 키를 사용하여 여러 파일을 동시에 선택할 수 있습니다)</p>
+            <p class="text-gray-600 mb-4">분석할 영상 클립(.mov, .mp4 등)을 선택해주세요.</p>
             <input type="file" id="video-files-input" multiple accept="video/mp4,video/quicktime,.mov" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"/>
         </div>
 
@@ -39,16 +46,11 @@
                     <input type="range" id="threshold-slider" min="0" max="200" value="50" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
                     <span id="threshold-value" class="font-bold text-lg text-blue-600 w-12 text-center">50</span>
                 </div>
-                <p class="text-sm text-gray-500 mt-2">이 값보다 선명도 점수가 낮으면 '흐린 프레임'으로 간주됩니다.</p>
             </div>
-            
-            <button id="analyze-button" class="bg-blue-600 text-white font-bold py-3 px-8 rounded-full hover:bg-blue-700 transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed">
-                모든 영상 분석 시작
+            <button id="analyze-button" class="bg-green-600 text-white font-bold py-3 px-8 rounded-full hover:bg-green-700 transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                분석 및 Google Drive에 저장
             </button>
-             <div id="loading-indicator" class="hidden mt-4 flex flex-col items-center">
-                <div class="loader"></div>
-                <p id="progress-text" class="text-gray-600 mt-2">분석 중... (0/0)</p>
-            </div>
+             <div id="loading-indicator" class="hidden mt-4 flex flex-col items-center"><div class="loader"></div><p id="progress-text" class="text-gray-600 mt-2"></p></div>
         </div>
         
         <div class="bg-white p-6 rounded-2xl shadow-lg mb-8">
@@ -56,44 +58,14 @@
             <div id="results-container" class="h-96 overflow-y-auto bg-gray-900 text-white font-mono rounded-lg p-4 border text-sm"><p class="text-gray-400 text-center py-4">분석을 시작하면 여기에 실시간 로그가 표시됩니다.</p></div>
         </div>
         
-        <div class="bg-white p-6 rounded-2xl shadow-lg mb-8">
-            <h2 class="text-xl font-semibold mb-4 border-b pb-2">4. 분석 결과 (DB 연동)</h2>
-            <p class="text-gray-600 mb-2">각 영상의 선명도 점수 변화 그래프입니다. 점수가 높을수록 선명합니다. (최신 분석 순)</p>
-            <div id="compact-results-container" class="h-96 overflow-y-auto bg-gray-50 rounded-lg p-2 border space-y-3"><p id="compact-results-placeholder" class="text-gray-500 text-center py-4">DB에서 분석 기록을 불러옵니다...</p></div>
-        </div>
-
         <div class="bg-white p-6 rounded-2xl shadow-lg">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-semibold">5. 주요 프레임 (DB 연동)</h2>
-                <select id="key-frame-filter" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2">
-                    <option value="all">모든 파일 보기</option>
-                </select>
-            </div>
-             <p class="text-gray-600 mb-2">'선명'에서 '흐림'으로 전환된 얼굴 이미지입니다. (최신 분석 순)</p>
-            <div id="key-frames-container" class="h-96 overflow-y-auto bg-gray-50 rounded-lg p-4 border space-y-4"><p id="key-frames-placeholder" class="text-gray-500 text-center py-4">DB에서 주요 프레임을 불러옵니다...</p></div>
-        </div>
-    </div>
-    
-    <!-- Confirm Modal -->
-    <div id="confirm-modal" class="fixed inset-0 z-50 items-center justify-center hidden">
-        <div id="confirm-modal-backdrop" class="fixed inset-0"></div>
-        <div class="relative bg-white rounded-lg shadow-lg p-6 w-full max-w-md m-4">
-            <h3 class="text-lg font-bold mb-4" id="confirm-modal-title">중복 분석 확인</h3>
-            <p id="confirm-modal-message" class="mb-6">이 파일은 이전에 분석된 기록이 있습니다. 다시 분석하시겠습니까?</p>
-            <div class="flex justify-end gap-4">
-                <button id="confirm-modal-no" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">아니요 (건너뛰기)</button>
-                <button id="confirm-modal-yes" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">예 (재분석)</button>
-            </div>
+             <h2 class="text-xl font-semibold mb-4 border-b pb-2">4. 과거 분석 결과 (Google Sheets)</h2>
+             <p class="text-gray-600 mb-2">Google Sheets에 저장된 과거 분석 기록입니다.</p>
+            <div id="sheet-data-container" class="h-96 overflow-y-auto bg-gray-50 rounded-lg p-2 border"><p id="sheet-data-placeholder" class="text-gray-500 text-center py-4">Google 로그인 후 데이터를 불러옵니다...</p></div>
         </div>
     </div>
 
-
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, getDocs, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getStorage, ref, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
-
+    <script>
         // --- DOM Element References ---
         const videoFilesInput = document.getElementById('video-files-input');
         const thresholdSlider = document.getElementById('threshold-slider');
@@ -102,85 +74,181 @@
         const loadingIndicator = document.getElementById('loading-indicator');
         const progressText = document.getElementById('progress-text');
         const modelStatus = document.getElementById('model-status');
+        const authStatus = document.getElementById('auth-status');
         const resultsContainer = document.getElementById('results-container');
-        const compactResultsContainer = document.getElementById('compact-results-container');
-        const compactResultsPlaceholder = document.getElementById('compact-results-placeholder');
-        const keyFramesContainer = document.getElementById('key-frames-container');
-        const keyFramesPlaceholder = document.getElementById('key-frames-placeholder');
-        const keyFrameFilter = document.getElementById('key-frame-filter');
-        const confirmModal = document.getElementById('confirm-modal');
-
+        const sheetDataContainer = document.getElementById('sheet-data-container');
+        const sheetDataPlaceholder = document.getElementById('sheet-data-placeholder');
+        const authorizeButton = document.getElementById('authorize_button');
+        const signoutButton = document.getElementById('signout_button');
 
         // --- Global State ---
         let videoFiles = [];
         let modelsLoaded = false;
         const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
-        let allKeyFrames = []; // Cache for filtering
-        
-        // --- Firebase State ---
-        let db, auth, storage;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-focus-detector';
 
-        // --- Firebase Initialization ---
-        async function initFirebase() {
-            try {
-                const firebaseConfigStr = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
-                const firebaseConfig = JSON.parse(firebaseConfigStr);
-                if (!firebaseConfig.apiKey) { throw new Error("Firebase config is missing."); }
-                const app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-                storage = getStorage(app);
-                await signInAnonymously(auth);
-                listenToDbChanges();
-                return true;
-            } catch (error) {
-                console.error("Firebase initialization failed:", error);
-                modelStatus.textContent = 'DB 연결 실패. 기능이 제한됩니다.';
-                modelStatus.className = 'text-lg text-red-600 mt-2';
-                return false;
+        // --- Google API State ---
+        // =========================================================================================
+        // === 중요: 1단계 - 여기에 당신의 API 키와 클라이언트 ID를 입력하세요 ===
+        // =========================================================================================
+        const API_KEY = 'AIzaSyBUmKuZjPq-VZtZJplJMvnxGnJM09RY1V4'; // Google Cloud Console에서 발급받은 API 키
+        const CLIENT_ID = '716495246752-bdfv696aer0734ie02j772qk414sh069.apps.googleusercontent.com'; // Google Cloud Console에서 발급받은 OAuth 2.0 클라이언트 ID
+        // =========================================================================================
+        
+        const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest", "https://sheets.googleapis.com/$discovery/rest?version=v4"];
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets'; // More specific scopes
+        const APP_FOLDER_NAME = '포커스 분석 결과';
+        const APP_SHEET_NAME = 'Focus Analysis Report';
+        const IMAGE_FOLDER_NAME = '주요 프레임 이미지';
+
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+        let appFolderId = null;
+        let imageFolderId = null;
+        let spreadsheetId = null;
+
+        // --- Model & API Initialization ---
+        window.gapiLoaded = () => gapi.load('client', initializeGapiClient);
+        window.gisLoaded = () => {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: gapiAuthCallback,
+            });
+            gisInited = true;
+            maybeEnableAuthButtons();
+        };
+
+        async function initializeGapiClient() {
+            await gapi.client.init({ apiKey: API_KEY, discoveryDocs: DISCOVERY_DOCS });
+            gapiInited = true;
+            maybeEnableAuthButtons();
+        }
+        
+        function maybeEnableAuthButtons() {
+            if (gapiInited && gisInited) {
+                authorizeButton.style.display = 'block';
             }
         }
-
-        // --- Real-time DB Listener ---
-        function listenToDbChanges() {
-            const analysisResultsRef = collection(db, `artifacts/${appId}/public/data/analysis_results`);
-            const q = query(analysisResultsRef, orderBy("timestamp", "desc"));
-            onSnapshot(q, (snapshot) => {
-                const resultsData = [];
-                snapshot.forEach(doc => resultsData.push({ id: doc.id, ...doc.data() }));
-                renderCompactResults(resultsData);
-                populateKeyFrameFilter(resultsData);
-            }, (error) => console.error("Error listening to analysis results:", error));
-            
-            const keyFramesRef = collection(db, `artifacts/${appId}/public/data/key_frames`);
-            const qKeyFrames = query(keyFramesRef, orderBy("timestamp", "desc"));
-            onSnapshot(qKeyFrames, (snapshot) => {
-                allKeyFrames = [];
-                snapshot.forEach(doc => allKeyFrames.push({ id: doc.id, ...doc.data() }));
-                renderKeyFrames(); // Initial render with 'all'
-            }, (error) => console.error("Error listening to key frames:", error));
-        }
-
-        // --- Model Loading ---
-        async function loadModelsAndInit() {
-            const firebaseReady = await initFirebase();
-            if(!firebaseReady) return;
+        
+        async function loadFaceApiModels() {
             try {
                 await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
                 modelsLoaded = true;
-                modelStatus.textContent = '얼굴 인식 모델 및 DB 로딩 완료!';
+                modelStatus.textContent = '얼굴 인식 모델 로딩 완료! Google 계정으로 로그인해주세요.';
                 modelStatus.className = 'text-lg text-green-600 mt-2';
-                updateAnalyzeButtonState();
             } catch (error) {
                 modelStatus.textContent = '얼굴 인식 모델 로딩 실패. 새로고침 해주세요.';
                 modelStatus.className = 'text-lg text-red-600 mt-2';
                 console.error("Face-api model loading failed:", error);
             }
         }
+        
+        // --- Authentication ---
+        authorizeButton.onclick = () => tokenClient.requestAccessToken({ prompt: 'consent' });
+        signoutButton.onclick = () => {
+             const token = gapi.client.getToken();
+             if (token !== null) {
+                google.accounts.oauth2.revoke(token.access_token, () => {
+                    gapi.client.setToken('');
+                    authorizeButton.style.display = 'block';
+                    signoutButton.style.display = 'none';
+                    authStatus.textContent = '';
+                    updateAnalyzeButtonState();
+                });
+             }
+        };
 
+        async function gapiAuthCallback(resp) {
+            if (resp.error !== undefined) { throw (resp); }
+            authorizeButton.style.display = 'none';
+            signoutButton.style.display = 'block';
+            authStatus.textContent = 'Google 계정으로 로그인되었습니다.';
+            await setupGoogleDrive();
+            await loadSheetData();
+            updateAnalyzeButtonState();
+        }
+        
+        // --- Google Drive & Sheets Setup ---
+        async function findOrCreate(name, mimeType, parentId = null) {
+            let query = `name = '${name}' and mimeType = '${mimeType}' and trashed = false`;
+            if (parentId) query += ` and '${parentId}' in parents`;
+
+            const response = await gapi.client.drive.files.list({ q: query, fields: 'files(id, name)' });
+            if (response.result.files.length > 0) {
+                appendLog(`[INFO] '${name}' 찾음 (ID: ${response.result.files[0].id})`, 'text-gray-400');
+                return response.result.files[0].id;
+            } else {
+                appendLog(`[INFO] '${name}' 생성 중...`, 'text-yellow-400');
+                const fileMetadata = { name: name, mimeType: mimeType };
+                if (parentId) fileMetadata.parents = [parentId];
+                const file = await gapi.client.drive.files.create({ resource: fileMetadata, fields: 'id' });
+                appendLog(`[INFO] '${name}' 생성 완료 (ID: ${file.result.id})`, 'text-green-400');
+                return file.result.id;
+            }
+        }
+        
+        async function createSheetWithHeaders(id) {
+            const values = [["분석 일시", "파일 이름", "평균 점수", "문제 여부", "흐린 프레임 비율 (%)"]];
+            const body = { values: values };
+            await gapi.client.sheets.spreadsheets.values.update({
+                spreadsheetId: id,
+                range: 'A1',
+                valueInputOption: 'USER_ENTERED',
+                resource: body,
+            });
+        }
+        
+        async function setupGoogleDrive() {
+            appFolderId = await findOrCreate(APP_FOLDER_NAME, 'application/vnd.google-apps.folder');
+            imageFolderId = await findOrCreate(IMAGE_FOLDER_NAME, 'application/vnd.google-apps.folder', appFolderId);
+            spreadsheetId = await findOrCreate(APP_SHEET_NAME, 'application/vnd.google-apps.spreadsheet', appFolderId);
+            
+            // Check if sheet is new, if so, add headers.
+            const sheet = await gapi.client.sheets.spreadsheets.get({ spreadsheetId: spreadsheetId, ranges: [] });
+            if (sheet.result.sheets.length === 1 && sheet.result.sheets[0].properties.title === 'Sheet1') {
+                 await createSheetWithHeaders(spreadsheetId);
+            }
+        }
+        
+        async function loadSheetData() {
+            if (!spreadsheetId) {
+                sheetDataPlaceholder.textContent = 'Google 시트 정보를 찾을 수 없습니다.';
+                return;
+            }
+            try {
+                const response = await gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: spreadsheetId, range: 'A:E' });
+                sheetDataPlaceholder.classList.add('hidden');
+                sheetDataContainer.innerHTML = '';
+                const rows = response.result.values || [];
+                if(rows.length <= 1) { // Only header
+                    sheetDataPlaceholder.textContent = '아직 저장된 분석 기록이 없습니다.';
+                    sheetDataPlaceholder.classList.remove('hidden');
+                    return;
+                }
+                
+                const table = document.createElement('table');
+                table.className = 'w-full text-sm text-left text-gray-500';
+                table.innerHTML = `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>${rows[0].map(h => `<th scope="col" class="px-6 py-3">${h}</th>`).join('')}</tr></thead>`;
+                const tbody = document.createElement('tbody');
+                rows.slice(1).forEach(row => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'bg-white border-b';
+                    tr.innerHTML = row.map(cell => `<td class="px-6 py-4">${cell}</td>`).join('');
+                    tbody.appendChild(tr);
+                });
+                table.appendChild(tbody);
+                sheetDataContainer.appendChild(table);
+
+            } catch(e) {
+                 console.error("Error loading sheet data", e);
+                 sheetDataPlaceholder.textContent = '시트 데이터 로딩 중 오류가 발생했습니다.';
+            }
+        }
+        
         // --- Core Logic & Helpers ---
         function calculateFocusScore(imageData) {
+            // (Same as previous version)
             const { width, height, data } = imageData;
             if (width === 0 || height === 0) return 0;
             const gray = new Uint8Array(width * height);
@@ -201,6 +269,7 @@
         }
 
         function getCentermostFace(detections, videoWidth, videoHeight) {
+            // (Same as previous version)
             if (!detections || detections.length === 0) return null;
             if (detections.length === 1) return detections[0];
             const frameCenterX = videoWidth / 2, frameCenterY = videoHeight / 2;
@@ -214,103 +283,21 @@
             return centermostFace;
         }
 
-        // --- UI Update Functions ---
         function updateAnalyzeButtonState() {
-            analyzeButton.disabled = videoFiles.length === 0 || !modelsLoaded;
-        }
-        
-        function appendLog(message, colorClass = 'text-gray-400') {
-            const logEntry = document.createElement('div');
-            logEntry.textContent = `> ${message}`;
-            logEntry.className = colorClass;
-            resultsContainer.appendChild(logEntry);
-            resultsContainer.scrollTop = resultsContainer.scrollHeight;
+            analyzeButton.disabled = videoFiles.length === 0 || !modelsLoaded || !gapi.client.getToken();
         }
 
-        function renderCompactResults(resultsData) {
-            compactResultsPlaceholder.classList.add('hidden');
-            compactResultsContainer.innerHTML = '';
-            resultsData.forEach(data => {
-                if (!data.frameScores || data.frameScores.length === 0) return;
-                const item = document.createElement('div');
-                item.className = 'p-2 border-b last:border-b-0';
-                const points = data.frameScores.map(fs => `${(fs.time / data.duration) * 100},${100 - (Math.min(fs.score, 200) / 2)}`).join(' ');
-                item.innerHTML = `<div class="flex justify-between items-center text-sm mb-1"><span class="truncate pr-4 font-medium">${data.fileName}</span><span class="font-semibold ${data.problematic ? 'text-red-500' : 'text-green-600'}">${data.avgScore.toFixed(2)}</span></div><svg viewBox="0 0 100 100" class="w-full h-12 bg-gray-200 rounded" preserveAspectRatio="none"><polyline fill="none" stroke="rgba(59, 130, 246, 0.7)" stroke-width="2" points="${points}" /></svg>`;
-                compactResultsContainer.appendChild(item);
-            });
-        }
-        
-        function populateKeyFrameFilter(resultsData) {
-            const fileNames = [...new Set(resultsData.map(r => r.fileName))];
-            const currentFilterValue = keyFrameFilter.value;
-            keyFrameFilter.innerHTML = '<option value="all">모든 파일 보기</option>';
-            fileNames.forEach(name => {
-                const option = document.createElement('option');
-                option.value = name;
-                option.textContent = name;
-                keyFrameFilter.appendChild(option);
-            });
-            keyFrameFilter.value = currentFilterValue;
-        }
-
-        function renderKeyFrames() {
-            const filter = keyFrameFilter.value;
-            const framesToRender = (filter === 'all') ? allKeyFrames : allKeyFrames.filter(f => f.fileName === filter);
-
-            keyFramesPlaceholder.classList.add('hidden');
-            keyFramesContainer.innerHTML = '';
-            if (framesToRender.length === 0) {
-                 keyFramesPlaceholder.textContent = filter === 'all' ? 'DB에 저장된 주요 프레임이 없습니다.' : '선택한 파일에 저장된 주요 프레임이 없습니다.';
-                 keyFramesPlaceholder.classList.remove('hidden');
-            }
-            framesToRender.forEach(data => {
-                const pairContainer = document.createElement('div');
-                pairContainer.className = 'p-3 bg-white rounded-lg shadow-md';
-                pairContainer.innerHTML = `<h4 class="font-bold text-md mb-2">${data.fileName} @ ${data.videoTime.toFixed(2)}초</h4><div class="flex gap-4"><div class="flex-1 text-center"><p class="text-sm font-semibold text-green-600 mb-1">선명</p><img src="${data.sharpFrameUrl}" class="w-full rounded-md border" loading="lazy"></div><div class="flex-1 text-center"><p class="text-sm font-semibold text-red-600 mb-1">흐림</p><img src="${data.blurryFrameUrl}" class="w-full rounded-md border" loading="lazy"></div></div>`;
-                keyFramesContainer.appendChild(pairContainer);
-            });
-        }
-        
-        // --- Modal Logic ---
-        function showConfirmModal(fileName) {
-            return new Promise((resolve) => {
-                document.getElementById('confirm-modal-message').textContent = `'${fileName}' 파일은 이전에 분석된 기록이 있습니다. 다시 분석하시겠습니까? (기존 데이터는 유지됩니다)`;
-                confirmModal.style.display = 'flex';
-                
-                const yesButton = document.getElementById('confirm-modal-yes');
-                const noButton = document.getElementById('confirm-modal-no');
-
-                const listener = (e) => {
-                    confirmModal.style.display = 'none';
-                    yesButton.removeEventListener('click', listener);
-                    noButton.removeEventListener('click', listener);
-                    resolve(e.target === yesButton);
-                };
-                
-                yesButton.addEventListener('click', listener);
-                noButton.addEventListener('click', listener);
-            });
-        }
-
-        // --- Main Analysis Logic ---
-        async function uploadKeyFrameImage(base64Data, analysisId, type) {
-            const storageRef = ref(storage, `artifacts/${appId}/public/data/keyframes/${analysisId}/${type}-${Date.now()}.jpeg`);
-            await uploadString(storageRef, base64Data, 'data_url');
-            return getDownloadURL(storageRef);
-        }
-
+        // --- Event Handlers & Main Analysis Logic ---
         videoFilesInput.addEventListener('change', (event) => {
-            const allowedExtensions = ['.mp4', '.mov'];
-            videoFiles = Array.from(event.target.files).filter(file => file.type.startsWith('video/') || allowedExtensions.some(ext => file.name.toLowerCase().endsWith(ext)));
+            videoFiles = Array.from(event.target.files);
             updateAnalyzeButtonState();
         });
 
         thresholdSlider.addEventListener('input', (event) => { thresholdValueEl.textContent = event.target.value; });
-        keyFrameFilter.addEventListener('change', renderKeyFrames);
 
         analyzeButton.addEventListener('click', async () => {
             if (videoFiles.length === 0) { alert('먼저 분석할 영상 파일을 선택해주세요.'); return; }
-            if (!modelsLoaded || !db) { alert('모델 또는 DB가 로딩 중입니다. 잠시 후 다시 시도해주세요.'); return; }
+            if (!gapi.client.getToken()) { alert('Google 계정으로 먼저 로그인해주세요.'); return; }
 
             loadingIndicator.style.display = 'flex';
             analyzeButton.disabled = true;
@@ -325,25 +312,9 @@
             const cropCtx = cropCanvas.getContext('2d');
             analysisVideo.muted = true;
             analysisVideo.preload = 'metadata';
-            
-            // --- Duplicate File Check ---
-            const existingResultsRef = collection(db, `artifacts/${appId}/public/data/analysis_results`);
 
             for (let i = 0; i < videoFiles.length; i++) {
                 const file = videoFiles[i];
-                progressText.textContent = `파일 확인 중... (${i + 1}/${videoFiles.length}) - ${file.name}`;
-                
-                const q = query(existingResultsRef, where("fileName", "==", file.name));
-                const querySnapshot = await getDocs(q);
-                if (!querySnapshot.empty) {
-                    const shouldReanalyze = await showConfirmModal(file.name);
-                    if (!shouldReanalyze) {
-                        appendLog(`분석 건너뜀: ${file.name}`, 'text-yellow-500');
-                        continue; // Skip to the next file
-                    }
-                }
-
-                // --- Start Analysis for a single file ---
                 appendLog(`[START] '${file.name}' 분석을 시작합니다.`, 'text-cyan-400');
                 const fileURL = URL.createObjectURL(file);
                 analysisVideo.src = fileURL;
@@ -351,7 +322,7 @@
                 const duration = await new Promise(resolve => { analysisVideo.onloadedmetadata = () => resolve(analysisVideo.duration); });
                 
                 let detectedFrameCount = 0;
-                const frameScores = [];
+                let frameScores = [];
                 let previousFrame = null;
 
                 const SAMPLING_INTERVAL_SECONDS = 0.5;
@@ -387,7 +358,11 @@
                         frameScores.push(currentFrame);
 
                         if (previousFrame && !previousFrame.isBlurry && currentFrame.isBlurry) {
-                            currentFrame.keyFrameInfo = { sharpDataURL: previousFrame.dataURL };
+                            const cleanFileName = file.name.split('.').slice(0, -1).join('');
+                            const sharpFileName = `${cleanFileName}_${currentFrame.time.toFixed(2)}s_sharp.jpeg`;
+                            const blurryFileName = `${cleanFileName}_${currentFrame.time.toFixed(2)}s_blurry.jpeg`;
+                            await uploadImageToDrive(imageFolderId, sharpFileName, previousFrame.dataURL);
+                            await uploadImageToDrive(imageFolderId, blurryFileName, currentFrame.dataURL);
                         }
                         previousFrame = currentFrame;
 
@@ -398,44 +373,18 @@
                 }
                 
                 const totalScore = frameScores.reduce((sum, frame) => sum + frame.score, 0);
-                const avgScore = detectedFrameCount > 0 ? totalScore / detectedFrameCount : 0;
                 const blurryFrameCount = frameScores.filter(f => f.isBlurry).length;
                 const blurryPercentage = detectedFrameCount > 0 ? (blurryFrameCount / detectedFrameCount) * 100 : 0;
-                const isProblematic = blurryPercentage > 10;
                 
-                const resultDoc = {
-                    fileName: file.name,
-                    timestamp: new Date(),
-                    duration: duration,
-                    avgScore: avgScore,
-                    problematic: isProblematic,
-                    frameScores: frameScores.map(d => ({time: d.time, score: d.score}))
-                };
+                const valuesToAppend = [[
+                    new Date().toLocaleString('ko-KR'),
+                    file.name,
+                    detectedFrameCount > 0 ? (totalScore / detectedFrameCount).toFixed(2) : 0,
+                    blurryPercentage > 10 ? 'Yes' : 'No',
+                    blurryPercentage.toFixed(1)
+                ]];
+                await appendToSheet(spreadsheetId, valuesToAppend);
                 
-                const docRef = await addDoc(collection(db, `artifacts/${appId}/public/data/analysis_results`), resultDoc);
-                appendLog(`[INFO] 분석 결과를 DB에 저장했습니다 (ID: ${docRef.id})`, 'text-blue-400');
-                
-                if (isProblematic) {
-                    for (const frame of frameScores) {
-                        if (frame.keyFrameInfo) {
-                             try {
-                                const sharpUrl = await uploadKeyFrameImage(frame.keyFrameInfo.sharpDataURL, docRef.id, 'sharp');
-                                const blurryUrl = await uploadKeyFrameImage(frame.dataURL, docRef.id, 'blurry');
-                                
-                                await addDoc(collection(db, `artifacts/${appId}/public/data/key_frames`), {
-                                    analysisId: docRef.id,
-                                    fileName: file.name,
-                                    timestamp: new Date(),
-                                    videoTime: frame.time,
-                                    sharpFrameUrl: sharpUrl,
-                                    blurryFrameUrl: blurryUrl
-                                });
-                                appendLog(`[INFO] 주요 프레임 업로드 @${frame.time.toFixed(2)}s`, 'text-blue-400');
-                            } catch (e) { console.error("Keyframe upload failed", e); }
-                        }
-                    }
-                }
-
                 URL.revokeObjectURL(fileURL);
                 appendLog(`[END] '${file.name}' 분석 완료.`, 'text-cyan-400');
                 appendLog('----------------------------------------------------', 'text-gray-600');
@@ -443,11 +392,13 @@
 
             loadingIndicator.style.display = 'none';
             analyzeButton.disabled = false;
-            videoFiles = []; // Clear file list after analysis
+            videoFiles = []; 
             updateAnalyzeButtonState();
+            await loadSheetData(); // Refresh sheet data after analysis
         });
 
-        window.onload = loadModelsAndInit;
+        // --- Initial Load ---
+        window.onload = loadFaceApiModels;
 
     </script>
 </body>
