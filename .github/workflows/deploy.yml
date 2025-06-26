@@ -1,0 +1,49 @@
+# GitHub Pages 배포를 위한 워크플로우
+name: Deploy to GitHub Pages
+
+on:
+  # 'main' 브랜치에 push가 발생할 때마다 이 워크플로우를 실행합니다.
+  push:
+    branches:
+      - main
+  # Actions 탭에서 수동으로 이 워크플로우를 실행할 수 있도록 허용합니다.
+  workflow_dispatch:
+
+# 동시 배포가 여러 개 실행되지 않도록 설정합니다.
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+  
+jobs:
+  # 배포 잡
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. 저장소의 코드를 체크아웃합니다.
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      # 2. index.html 파일의 플레이스홀더를 GitHub Secrets 값으로 교체합니다.
+      - name: Replace Tokens
+        uses: cschleiden/replace-tokens@v1
+        with:
+          files: '["index.html"]'
+        env:
+          # 왼쪽: index.html 안의 플레이스홀더 이름, 오른쪽: 저장소에 등록된 Secret 이름
+          GITHUB_TOKEN_PLACEHOLDER: ${{ secrets.GH_PAT }}
+
+      # 3. GitHub Pages에 배포하기 위한 아티팩트를 준비합니다.
+      - name: Setup Pages
+        uses: actions/configure-pages@v3
+        
+      # 4. 준비된 아티팩트를 업로드합니다.
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v2
+        with:
+          # 현재 폴더 전체를 업로드합니다.
+          path: '.'
+
+      # 5. 아티팩트를 GitHub Pages에 배포합니다.
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2
