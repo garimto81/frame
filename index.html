@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>포커스 이슈 탐지기 - Ver 0.22</title>
+    <title>포커스 이슈 탐지기 - Ver 0.23</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -145,7 +145,7 @@
     <!-- Chart Tooltip -->
     <div id="chart-tooltip" class="hidden"></div>
     <script>
-        const APP_VERSION = "0.22";
+        const APP_VERSION = "0.23";
         document.title = `포커스 이슈 탐지기 - Ver ${APP_VERSION}`;
         document.getElementById('version-display').textContent = `Ver ${APP_VERSION}`;
         
@@ -725,8 +725,8 @@
                             time: currentTime,
                             sharpFrameUrl: previousFrameState.dataURL,
                             blurryFrameUrl: fullFrameDataURL,
-                            sharpCroppedUrl: previousFrameState.faceDataURL, // Cropped face image
-                            blurryCroppedUrl: faceDataURL, // Cropped face image
+                            sharpCroppedUrl: previousFrameState.faceDataURL,
+                            blurryCroppedUrl: faceDataURL,
                             sharpBox: previousFrameState.box,
                             blurryBox: currentBox
                         });
@@ -744,7 +744,9 @@
                 const blurryFrameCount = frameScores.filter(f => f.score < threshold).length;
                 const blurryPercentage = detectedFrameCount > 0 ? (blurryFrameCount / detectedFrameCount) * 100 : 0;
                 
-                await uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/log.txt`, liveLogContent, false);
+                const assetUploadPromises = [];
+                assetUploadPromises.push(uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/log.txt`, liveLogContent, false));
+                
                 const uploadedKeyFrames = [];
                 for(const kf of keyFramesToUpload) {
                     const cleanFileName = file.name.split('.').slice(0, -1).join('');
@@ -753,18 +755,32 @@
                     const sharpCroppedFileName = `${cleanFileName}_${kf.time.toFixed(2)}s_sharp_crop.jpeg`;
                     const blurryCroppedFileName = `${cleanFileName}_${kf.time.toFixed(2)}s_blurry_crop.jpeg`;
 
-                    const sharpUrl = await uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${sharpFileName}`, kf.sharpFrameUrl, true);
-                    const blurryUrl = await uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${blurryFileName}`, kf.blurryFrameUrl, true);
-                    const sharpCroppedUrl = kf.sharpCroppedUrl ? await uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${sharpCroppedFileName}`, kf.sharpCroppedUrl, true) : sharpUrl;
-                    const blurryCroppedUrl = kf.blurryCroppedUrl ? await uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${blurryCroppedFileName}`, kf.blurryCroppedUrl, true) : blurryUrl;
+                    assetUploadPromises.push(
+                        uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${sharpFileName}`, kf.sharpFrameUrl, true),
+                        uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${blurryFileName}`, kf.blurryFrameUrl, true)
+                    );
+                    if (kf.sharpCroppedUrl) assetUploadPromises.push(uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${sharpCroppedFileName}`, kf.sharpCroppedUrl, true));
+                    if (kf.blurryCroppedUrl) assetUploadPromises.push(uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${blurryCroppedFileName}`, kf.blurryCroppedUrl, true));
+                }
 
-                    if (sharpUrl && blurryUrl) { 
+                const assetUrls = await Promise.all(assetUploadPromises);
+                
+                // Re-construct uploadedKeyFrames with URLs
+                let urlIndex = 1; // 0 is the log file
+                for(const kf of keyFramesToUpload) {
+                    const sharpUrl = assetUrls[urlIndex++];
+                    const blurryUrl = assetUrls[urlIndex++];
+                    const sharpCroppedUrl = kf.sharpCroppedUrl ? assetUrls[urlIndex++] : sharpUrl;
+                    const blurryCroppedUrl = kf.blurryCroppedUrl ? assetUrls[urlIndex++] : blurryUrl;
+
+                     if (sharpUrl && blurryUrl) { 
                         uploadedKeyFrames.push({
                             time: kf.time, sharpUrl, blurryUrl, sharpCroppedUrl, blurryCroppedUrl,
                             sharpBox: kf.sharpBox, blurryBox: kf.blurryBox
                         }); 
                     }
                 }
+
                 
                 allAnalysisData[analysisId] = {
                     analysisId, timestamp: new Date().toISOString(), fileName: file.name,
@@ -777,9 +793,9 @@
                 appendLog(`> [END] '${file.name}' 분석 완료.`);
             }
             
-            progressText.textContent = '최종 결과를 GitHub에 저장 중...';
-            // Logic to save the new analysis data into the correct chunk
-            // This is a simplified version. A robust implementation would be needed.
+            const saveStartTime = performance.now();
+            appendLog('[SAVE_TRACE] 1. 최종 결과를 GitHub에 저장 시작...', 'text-yellow-400');
+            
             const indexFile = await getFileFromGitHub(GITHUB_CONFIG.indexPath);
             const chunkList = JSON.parse(decodeURIComponent(escape(atob(indexFile.content))));
             const latestChunkName = chunkList.length > 0 ? chunkList[chunkList.length - 1] : "results_1.json";
@@ -794,13 +810,30 @@
             
             Object.assign(chunkData, allAnalysisData);
 
-            await createOrUpdateFileOnGitHub(
-                `${GITHUB_CONFIG.resultsChunksPath}${latestChunkName}`,
-                JSON.stringify(chunkData, null, 2),
-                sha,
-                `Add analysis for ${videoFiles.length} file(s)`
-            );
+            // Check size and create new chunk if needed
+            const newContentString = JSON.stringify(chunkData, null, 2);
+            if (new Blob([newContentString]).size > CHUNK_SIZE_LIMIT && chunkList.length > 0) {
+                 appendLog('[SAVE_TRACE] 청크 파일 용량 초과. 새 파일을 생성합니다.', 'text-yellow-400');
+                 const newChunkIndex = chunkList.length + 1;
+                 const newChunkName = `results_${newChunkIndex}.json`;
+                 
+                 // Save new data to new chunk
+                 await createOrUpdateFileOnGitHub(`${GITHUB_CONFIG.resultsChunksPath}${newChunkName}`, JSON.stringify(allAnalysisData, null, 2), null, `Create new data chunk ${newChunkIndex}`);
+                 
+                 // Update index
+                 chunkList.push(newChunkName);
+                 await createOrUpdateFileOnGitHub(GITHUB_CONFIG.indexPath, JSON.stringify(chunkList, null, 2), indexFile.sha, `Add new chunk ${newChunkName}`);
 
+            } else {
+                 await createOrUpdateFileOnGitHub(
+                    `${GITHUB_CONFIG.resultsChunksPath}${latestChunkName}`,
+                    newContentString,
+                    sha,
+                    `Add analysis for ${videoFiles.length} file(s)`
+                );
+            }
+            const saveEndTime = performance.now();
+            appendLog(`[SAVE_TRACE] 3. 최종 저장 완료. (총 소요 시간: ${(saveEndTime - saveStartTime) / 1000}초)`, 'text-green-500');
 
             loadingIndicator.style.display = 'none';
             analyzeButton.disabled = false;
@@ -827,4 +860,4 @@
 
     </script>
 </body>
-</html>
+</ht
