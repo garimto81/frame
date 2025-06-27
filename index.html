@@ -14,7 +14,7 @@
         .loader { border: 5px solid #f3f3f3; border-top: 5px solid #3498db; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .result-item:hover { background-color: #f0f9ff; }
-        .result-item.selected { background-color: #dbeafe; border-left-width: 4px; border-color: #3b82f6; }
+        .result-item.selected { background-color: #dbeafe; }
         #chart-tooltip {
             position: absolute;
             background: #ffffff;
@@ -25,59 +25,70 @@
             pointer-events: none;
             opacity: 0;
             transition: opacity 0.2s ease-in-out;
-            transform: translate(-50%, -50%);
+            transform: translate(-50%, -110%);
             z-index: 50;
-            width: 40rem; /* Increased size */
+            width: 40rem;
             box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
         }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-800 h-screen flex flex-col">
+<body class="bg-gray-100 text-gray-800">
 
-    <header class="text-center py-4 border-b bg-white shadow-sm flex-shrink-0">
-        <h1 class="text-2xl md:text-3xl font-bold text-gray-900">포커스 이슈 탐지기 (GitHub 연동)</h1>
-        <p id="model-status" class="text-sm text-yellow-600 mt-1">인식 모델 로딩 중...</p>
-    </header>
-    
-    <main class="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-4 p-4 overflow-hidden">
-        <!-- Left Panel: Controls & Results List -->
-        <div class="lg:col-span-1 flex flex-col gap-4 overflow-hidden">
-            <div class="bg-white p-6 rounded-2xl shadow-lg flex-shrink-0">
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+        <header class="text-center mb-8">
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-900">포커스 이슈 탐지기 (GitHub 연동)</h1>
+            <p id="model-status" class="text-sm text-yellow-600 mt-1">인식 모델 로딩 중...</p>
+        </header>
+        
+        <div class="space-y-8">
+            <!-- Controls -->
+            <div class="bg-white p-6 rounded-2xl shadow-lg">
                 <h2 class="text-xl font-semibold mb-4 border-b pb-2">1. 제어 패널</h2>
-                <div class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                     <div>
                         <label for="video-files-input" class="block text-sm font-medium text-gray-700 mb-1">영상 파일 선택</label>
                         <input type="file" id="video-files-input" multiple accept="video/mp4,video/quicktime,.mov" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"/>
                     </div>
-                     <div>
+                     <div class="space-y-2">
                         <label for="threshold-slider" class="block text-sm font-medium text-gray-700">흐림 기준값</label>
                         <div class="flex items-center gap-2">
                             <input type="range" id="threshold-slider" min="0" max="200" value="50" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
                             <span id="threshold-value" class="font-bold text-lg text-blue-600 w-12 text-center">50</span>
                         </div>
                     </div>
-                     <button id="analyze-button" class="w-full bg-green-600 text-white font-bold py-3 px-8 rounded-full hover:bg-green-700 transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                </div>
+                <div class="mt-6 text-center">
+                     <button id="analyze-button" class="w-full md:w-auto bg-green-600 text-white font-bold py-3 px-12 rounded-full hover:bg-green-700 transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed">
                         분석 및 GitHub에 저장
                     </button>
-                    <div id="loading-indicator" class="hidden flex flex-col items-center"><div class="loader"></div><p id="progress-text" class="text-gray-600 mt-2"></p></div>
+                    <div id="loading-indicator" class="hidden mt-4 flex flex-col items-center"><div class="loader"></div><p id="progress-text" class="text-gray-600 mt-2"></p></div>
                 </div>
             </div>
-            <div class="bg-white p-6 rounded-2xl shadow-lg flex-grow flex flex-col overflow-hidden">
-                <h2 class="text-xl font-semibold mb-4 border-b pb-2">2. 분석 기록</h2>
-                <div id="results-list-container" class="flex-grow overflow-y-auto -mr-2 pr-2">
+
+            <!-- Results List -->
+            <div class="bg-white p-6 rounded-2xl shadow-lg">
+                 <h2 class="text-xl font-semibold mb-4 border-b pb-2">2. 분석 기록</h2>
+                <div id="results-list-container" class="space-y-1">
                     <p id="results-list-placeholder" class="text-gray-500 text-center py-4">GitHub 정보 확인 중...</p>
                 </div>
-                <div id="pagination-controls" class="pt-4 border-t flex justify-center gap-2"></div>
+                <div id="pagination-controls" class="pt-4 mt-4 border-t flex justify-center gap-2"></div>
             </div>
-        </div>
 
-        <!-- Right Panel: Details -->
-        <div id="right-panel" class="lg:col-span-2 flex flex-col gap-4 overflow-hidden">
-             <div class="bg-white p-6 rounded-2xl shadow-lg flex-grow flex flex-col overflow-hidden">
-                <h2 class="text-xl font-semibold mb-4 border-b pb-2">3. 상세 분석</h2>
-                <div id="details-container" class="relative flex-grow min-h-0">
-                    <p id="chart-placeholder" class="text-gray-500 text-center absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">왼쪽 목록에서 분석 기록을 선택하세요.</p>
-                    <canvas id="detail-chart"></canvas>
+             <!-- Details Section (hidden by default) -->
+            <div id="details-section" class="hidden space-y-8">
+                <div class="bg-white p-6 rounded-2xl shadow-lg">
+                    <div class="flex justify-between items-center mb-4 border-b pb-2">
+                        <h2 class="text-xl font-semibold">3. 상세 분석 그래프</h2>
+                        <button id="back-to-list-button" class="bg-gray-200 text-gray-700 px-4 py-1 rounded-full text-sm font-medium hover:bg-gray-300">← 전체 목록으로</button>
+                    </div>
+                    <p class="text-sm text-gray-600 mb-2 -mt-2">그래프 위 빨간 점에 마우스를 올리면 주요 프레임을 확인할 수 있습니다.</p>
+                    <div id="chart-container" class="relative h-64">
+                        <canvas id="detail-chart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-lg">
+                    <h2 class="text-xl font-semibold mb-4 border-b pb-2">4. 분석 로그</h2>
+                    <div id="log-container" class="h-96 overflow-y-auto bg-gray-900 text-white font-mono rounded-lg p-4 border text-sm"></div>
                 </div>
             </div>
         </div>
@@ -97,9 +108,12 @@
         const resultsListContainer = document.getElementById('results-list-container');
         const resultsListPlaceholder = document.getElementById('results-list-placeholder');
         const paginationControls = document.getElementById('pagination-controls');
+        const detailsSection = document.getElementById('details-section');
         const chartPlaceholder = document.getElementById('chart-placeholder');
         const detailChartCanvas = document.getElementById('detail-chart');
+        const logContainer = document.getElementById('log-container');
         const chartTooltip = document.getElementById('chart-tooltip');
+        const backToListButton = document.getElementById('back-to-list-button');
 
         // --- Global State ---
         let videoFiles = [];
@@ -113,8 +127,9 @@
         // --- GitHub API State ---
         const GITHUB_CONFIG = {
             owner: 'garimto81', repo: 'frame', token: '#{GITHUB_TOKEN_PLACEHOLDER}#',
-            resultsIndexFile: 'data/results.json'
+            resultsIndexFile: 'data/results.json', assetsPath: 'data/assets'
         };
+
         const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/`;
         const GITHUB_HEADERS = { 'Authorization': `token ${GITHUB_CONFIG.token}`, 'Accept': 'application/vnd.github.v3+json' };
         
@@ -203,7 +218,7 @@
             if (keyFrameData) {
                 const isOverridden = keyFrameData.manualOverride === 'ok';
                 chartTooltip.innerHTML = `<div class="flex gap-4 p-1"><div class="text-center w-1/2"><p class="text-sm font-semibold text-green-400 mb-1">선명</p><img src="${keyFrameData.sharpUrl}" class="w-full h-auto object-contain rounded"></div><div class="text-center w-1/2"><p class="text-sm font-semibold ${isOverridden ? 'text-green-400' : 'text-red-400'} mb-1">${isOverridden ? '흐림 (수동OK)' : '흐림'}</p><img src="${keyFrameData.blurryUrl}" class="w-full h-auto object-contain rounded"></div></div>
-                <button id="manual-override-button" data-analysis-id="${analysisId}" data-time="${keyFrameData.time}" class="w-full mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm">이 프레임은 문제 없음 (녹색으로 변경)</button>`;
+                <button id="manual-override-button" data-analysis-id="${analysisId}" data-time="${keyFrameData.time}" class="w-full mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm ${isOverridden ? 'hidden' : ''}">이 프레임은 문제 없음 (녹색으로 변경)</button>`;
                 
                 chartTooltip.style.opacity = 1;
                 chartTooltip.classList.remove('hidden');
@@ -263,8 +278,11 @@
             }
         }
 
-        function renderDetailedView(analysisId) {
+        async function renderDetailedView(analysisId) {
+            detailsSection.classList.remove('hidden');
             chartPlaceholder.classList.add('hidden');
+            logContainer.innerHTML = '<p class="text-gray-400 text-center py-4">로그를 불러오는 중...</p>';
+            
             const resultData = allAnalysisData.find(d => d.analysisId === analysisId);
             if (!resultData) return;
 
@@ -289,6 +307,23 @@
                     scales: { x: { type: 'linear', title: { display: true, text: '시간 (초)' } }, y: { beginAtZero: true, title: { display: true, text: '점수' } } }
                 }
             });
+
+            const logFile = await getFileFromGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/log.txt`);
+            if (logFile && logFile.content) {
+                const logContent = decodeURIComponent(escape(atob(logFile.content)));
+                logContainer.innerHTML = '';
+                logContent.split('\n').forEach(line => {
+                    const logEntry = document.createElement('div');
+                    logEntry.textContent = line;
+                    if(line.includes('흐림')) logEntry.className = 'text-red-500';
+                    else if(line.includes('선명')) logEntry.className = 'text-green-500';
+                    else if(line.startsWith('> [START]')) logEntry.className = 'text-cyan-400';
+                    else logEntry.className = 'text-gray-400';
+                    logContainer.appendChild(logEntry);
+                });
+            } else {
+                logContainer.innerHTML = '<p class="text-gray-400 text-center py-4">저장된 로그 파일을 찾을 수 없습니다.</p>';
+            }
         }
         
         async function handleManualCorrection(analysisId, time) {
@@ -298,7 +333,7 @@
             if (keyFrameIndex === -1) return;
 
             allAnalysisData[analysisIndex].keyFrames[keyFrameIndex].manualOverride = 'ok';
-            renderDetailedView(analysisId); // Re-render chart immediately
+            renderDetailedView(analysisId);
 
             const existingResultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsIndexFile);
             await updateFileOnGitHub(GITHUB_CONFIG.resultsIndexFile, JSON.stringify(allAnalysisData, null, 2), existingResultsFile.sha, `Update manual override for ${analysisId}`);
@@ -307,12 +342,17 @@
         // --- Event Handlers & Main Analysis Logic ---
         videoFilesInput.addEventListener('change', (event) => { videoFiles = Array.from(event.target.files); updateAnalyzeButtonState(); });
         thresholdSlider.addEventListener('input', (event) => { thresholdValueEl.textContent = event.target.value; });
+        backToListButton.addEventListener('click', () => {
+            detailsSection.classList.add('hidden');
+            if (detailChart) detailChart.destroy();
+            resultsListContainer.querySelectorAll('.result-item').forEach(r => r.classList.remove('selected'));
+        });
 
         analyzeButton.addEventListener('click', async () => { /* ... */
             if (videoFiles.length === 0) { alert('먼저 분석할 영상 파일을 선택해주세요.'); return; }
             loadingIndicator.style.display = 'flex';
             analyzeButton.disabled = true;
-            document.getElementById('log-container').innerHTML = ''; // Clear live log
+            detailsSection.classList.add('hidden');
             
             const threshold = parseFloat(thresholdSlider.value);
             const analysisVideo = document.createElement('video');
