@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>포커스 이슈 탐지기 - Ver 0.23</title>
+    <title>포커스 이슈 탐지기 - Ver 0.24</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -115,28 +115,28 @@
                     <p class="text-gray-700 text-sm leading-relaxed">
                         사용자는 분석할 영상 파일(.mp4, .mov)을 선택합니다. '흐림 기준값'을 조절하여 선명도 판단의 민감도를 설정할 수 있습니다. (값이 낮을수록 사소한 흐림도 문제로 감지합니다.) '분석 시작'을 누르면 분석이 시작되며, 브라우저가 잠시 멈출 수 있습니다.
                     </p>
-                    <img src="https://placehold.co/600x200/e2e8f0/4a5568?text=1.+%ED%8C%8C%EC%9D%BC+%EC%84%A0%ED%83%9D+%26+%EC%84%A4%EC%A0%95+UI" alt="파일 선택 및 설정 UI 예시" class="mt-2 rounded-md border">
+                    <img src="https://placehold.co/600x200/e2e8f0/4a5568?text=1.+%ED%8C%8C%EC%9D%BC+%EC%84%A0%ED%83%9D+%26+%EC%84%A4%EC%A0%95+UI" alt="파일 선택 및 설정 UI 예시" class="mt-2 rounded-md border w-full h-auto object-contain">
                 </div>
                 <div>
                     <h4 class="font-bold text-lg mb-2">2. 얼굴 탐지 및 선명도 측정</h4>
                     <p class="text-gray-700 text-sm leading-relaxed">
                         영상에서 0.5초 간격으로 프레임을 추출하여 <strong>face-api.js</strong>로 얼굴을 탐지합니다. 신뢰도가 50% 이상인 얼굴만 대상으로 하며, 여러 얼굴이 있다면 영상 중앙에 가장 가까운 얼굴을 기준으로 삼습니다. 탐지된 얼굴 영역에 '라플라시안 분산' 알고리즘을 적용하여 선명도 점수를 계산합니다.
                     </p>
-                     <img src="https://placehold.co/600x200/e2e8f0/4a5568?text=2.+%EC%96%BC%EA%B5%B4+%ED%83%90%EC%A7%80+%26+%EC%84%A0%EB%AA%85%EB%8F%84+%EC%B8%A1%EC%A0%95" alt="얼굴 탐지 및 선명도 측정 예시" class="mt-2 rounded-md border">
+                     <img src="https://raw.githubusercontent.com/garimto81/frame/refs/heads/main/2506271214.png" alt="얼굴 탐지 및 선명도 측정 예시" class="mt-2 rounded-md border w-full h-auto object-contain max-h-64">
                 </div>
                 <div>
                     <h4 class="font-bold text-lg mb-2">3. 문제 프레임 감지 및 저장</h4>
                     <p class="text-gray-700 text-sm leading-relaxed">
                         이전 프레임의 상태가 '선명' 또는 '미검출'이었는데 현재 프레임에서 '흐림' 상태의 얼굴이 감지되면 '문제 프레임'으로 판단합니다. 이 때, 이전 프레임과 현재 문제 프레임을 한 쌍으로 캡처하여 GitHub 저장소에 안전하게 업로드합니다.
                     </p>
-                     <img src="https://placehold.co/600x200/e2e8f0/4a5568?text=3.+%EB%AC%B8%EC%A0%9C+%ED%94%84%EB%A0%88%EC%9E%84+%EC%BA%A1%EC%B2%98" alt="문제 프레임 감지 예시" class="mt-2 rounded-md border">
+                     <img src="https://raw.githubusercontent.com/garimto81/frame/refs/heads/main/%EC%8A%A4%ED%81%AC%EB%A6%B0%EC%83%B7%202025-06-27%20121633.png" alt="문제 프레임 감지 예시" class="mt-2 rounded-md border w-full h-auto object-contain max-h-64">
                 </div>
                 <div>
                     <h4 class="font-bold text-lg mb-2">4. 결과 확인 및 수동 보정</h4>
                     <p class="text-gray-700 text-sm leading-relaxed">
                         분석 기록을 클릭하면 상세 그래프, 주요 프레임, 전체 로그를 확인할 수 있습니다. 시스템이 잘못 판단한 경우, 버튼을 클릭하여 '문제 없음'으로 상태를 변경하거나 다시 '문제 프레임'으로 되돌릴 수 있습니다.
                     </p>
-                    <img src="https://placehold.co/600x200/e2e8f0/4a5568?text=4.+%EA%B2%B0%EA%B3%BC+%ED%99%95%EC%9D%B8+%26+%EB%B3%B4%EC%A0%95" alt="결과 확인 및 보정 UI 예시" class="mt-2 rounded-md border">
+                    <img src="https://raw.githubusercontent.com/garimto81/frame/refs/heads/main/%EC%8A%A4%ED%81%AC%EB%A6%B0%EC%83%B7%202025-06-27%20121552.png" alt="결과 확인 및 보정 UI 예시" class="mt-2 rounded-md border w-full h-auto object-contain max-h-64">
                 </div>
             </div>
         </div>
@@ -145,7 +145,7 @@
     <!-- Chart Tooltip -->
     <div id="chart-tooltip" class="hidden"></div>
     <script>
-        const APP_VERSION = "0.23";
+        const APP_VERSION = "0.24";
         document.title = `포커스 이슈 탐지기 - Ver ${APP_VERSION}`;
         document.getElementById('version-display').textContent = `Ver ${APP_VERSION}`;
         
@@ -765,8 +765,7 @@
 
                 const assetUrls = await Promise.all(assetUploadPromises);
                 
-                // Re-construct uploadedKeyFrames with URLs
-                let urlIndex = 1; // 0 is the log file
+                let urlIndex = 1; 
                 for(const kf of keyFramesToUpload) {
                     const sharpUrl = assetUrls[urlIndex++];
                     const blurryUrl = assetUrls[urlIndex++];
@@ -810,17 +809,14 @@
             
             Object.assign(chunkData, allAnalysisData);
 
-            // Check size and create new chunk if needed
             const newContentString = JSON.stringify(chunkData, null, 2);
             if (new Blob([newContentString]).size > CHUNK_SIZE_LIMIT && chunkList.length > 0) {
                  appendLog('[SAVE_TRACE] 청크 파일 용량 초과. 새 파일을 생성합니다.', 'text-yellow-400');
                  const newChunkIndex = chunkList.length + 1;
                  const newChunkName = `results_${newChunkIndex}.json`;
                  
-                 // Save new data to new chunk
                  await createOrUpdateFileOnGitHub(`${GITHUB_CONFIG.resultsChunksPath}${newChunkName}`, JSON.stringify(allAnalysisData, null, 2), null, `Create new data chunk ${newChunkIndex}`);
                  
-                 // Update index
                  chunkList.push(newChunkName);
                  await createOrUpdateFileOnGitHub(GITHUB_CONFIG.indexPath, JSON.stringify(chunkList, null, 2), indexFile.sha, `Add new chunk ${newChunkName}`);
 
@@ -860,4 +856,4 @@
 
     </script>
 </body>
-</ht
+</html>
