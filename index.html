@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>포커스 이슈 탐지기 (GitHub 연동) - 개선판</title>
+    <title>포커스 이슈 탐지기 (GitHub 연동) - Ver 0.01</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -41,7 +41,7 @@
             <h1 class="text-2xl md:text-3xl font-bold text-gray-900">포커스 이슈 탐지기 (GitHub 연동)</h1>
             <p id="model-status" class="text-sm text-yellow-600 mt-1">인식 모델 로딩 중...</p>
              <div class="absolute top-4 right-4">
-                <a href="how-it-works.html" target="_blank" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm font-medium hover:bg-gray-300 transition">작동 방식 보기</a>
+                <button id="how-it-works-button" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm font-medium hover:bg-gray-300 transition">작동 방식 보기</button>
             </div>
         </header>
         
@@ -109,19 +109,47 @@
         </main>
     </div>
 
+    <!-- How It Works Modal -->
+    <div id="how-it-works-modal" class="hidden fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center border-b p-4">
+                <h3 class="text-xl font-bold">작동 방식</h3>
+                <button id="close-modal-button" class="text-gray-400 hover:text-gray-700 text-3xl leading-none">&times;</button>
+            </div>
+            <div class="p-6 space-y-4 overflow-y-auto">
+                <div>
+                    <h4 class="font-bold text-lg mb-2">1. 영상 분석 및 설정</h4>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        사용자는 분석할 영상 파일(.mp4, .mov)을 선택합니다. '흐림 기준값'을 조절하여 선명도 판단의 민감도를 설정할 수 있습니다. (값이 낮을수록 사소한 흐림도 문제로 감지합니다.) '분석 시작'을 누르면 UI 멈춤 없이 백그라운드에서 분석이 진행됩니다.
+                    </p>
+                </div>
+                <div>
+                    <h4 class="font-bold text-lg mb-2">2. 얼굴 탐지 및 선명도 측정</h4>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        영상에서 0.5초 간격으로 프레임을 추출하여 <strong>face-api.js</strong>로 얼굴을 탐지합니다. 여러 얼굴이 있다면 영상 중앙에 가장 가까운 얼굴을 기준으로 삼습니다. 탐지된 얼굴 영역에 '라플라시안 분산' 알고리즘을 적용하여 선명도 점수를 계산합니다. 점수가 낮을수록 초점이 흐린 이미지입니다.
+                    </p>
+                </div>
+                <div>
+                    <h4 class="font-bold text-lg mb-2">3. 문제 프레임 감지 및 저장</h4>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        선명도 점수가 설정된 기준값보다 낮으면 '흐림'으로 판단합니다. '선명' 상태에서 '흐림'으로 전환되는 시점을 '주요 프레임'으로 감지하고, 직전의 선명한 프레임과 현재의 흐린 프레임을 한 쌍으로 캡처합니다. 분석 완료 후, 모든 결과는 GitHub 저장소에 안전하게 업로드됩니다.
+                    </p>
+                </div>
+                <div>
+                    <h4 class="font-bold text-lg mb-2">4. 결과 확인 및 수동 보정</h4>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        분석 기록을 클릭하면 상세 그래프, 주요 프레임, 전체 로그를 확인할 수 있습니다. 그래프의 점 위에 마우스를 올리면 해당 시점의 프레임 이미지를 바로 볼 수 있습니다. 시스템이 '흐림'으로 잘못 판단한 경우, '이 프레임은 문제 없음' 버튼을 눌러 수동으로 상태를 재정의하고 저장할 수 있습니다.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Chart Tooltip -->
     <div id="chart-tooltip" class="hidden"></div>
     
-    <!-- 
-        Web Worker for background processing.
-        This script is embedded here using a <script type="javascript/worker">.
-        This is a common technique to keep the project self-contained in one HTML file.
-        In a real-world scenario, this would be a separate analyzer.worker.js file.
-    -->
+    <!-- Web Worker Script -->
     <script type="javascript/worker" id="analyzer-worker">
-        // In a real file, you would use: importScripts('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js');
-        // Since we are in a worker, we can't access the `window` object directly. 
-        // We have to load the script this way.
         self.importScripts('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js');
 
         const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
@@ -293,6 +321,9 @@
             chartTooltip: document.getElementById('chart-tooltip'),
             keyFramesContainer: document.getElementById('key-frames-container'),
             keyFramesPlaceholder: document.getElementById('key-frames-placeholder'),
+            howItWorksButton: document.getElementById('how-it-works-button'),
+            howItWorksModal: document.getElementById('how-it-works-modal'),
+            closeModalButton: document.getElementById('close-modal-button'),
         };
 
         // --- Global State ---
@@ -356,7 +387,6 @@
                 message: commitMessage,
                 content: btoa(unescape(encodeURIComponent(content))),
             };
-            // For updates, 'sha' is required. For new files, it must be omitted.
             if (sha) {
                 body.sha = sha;
             }
@@ -373,7 +403,7 @@
                 }
             } catch (error) {
                 console.error(`GitHub Update Error: ${path}`, error);
-                throw error; // Rethrow to handle it in the calling function
+                throw error;
             }
         }
         
@@ -573,7 +603,7 @@
 
                 if (resultsFile === 'error') { throw new Error('GitHub 저장소 접근에 실패했습니다.'); }
                 
-                if (resultsFile === null) { // Create if not exists
+                if (resultsFile === null) { 
                     console.log('results.json not found. Creating a new one.');
                     await updateFileOnGitHub(GITHUB_CONFIG.resultsIndexFile, '[]', null, 'Initialize results.json');
                     resultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsIndexFile);
@@ -610,7 +640,6 @@
             } catch(error) {
                 console.error(error);
                 alert("수동 재정의 저장에 실패했습니다.");
-                // Revert state on failure if needed
                 state.allAnalysisData[analysisIndex].keyFrames[keyFrameIndex].manualOverride = undefined;
                 renderDetailedView(analysisId);
             }
@@ -682,15 +711,13 @@
 
             const newAnalyses = [];
             let uploadsCompleted = 0;
-            const totalUploads = results.reduce((sum, r) => sum + 1 + r.keyFramesToCapture.length, 0); // 1 log file + N keyframe pairs
+            const totalUploads = results.reduce((sum, r) => sum + 1 + r.keyFramesToCapture.length, 0);
 
             for(const result of results) {
-                // 1. Upload Log file
                 await uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${result.analysisId}/log.txt`, result.logContent, false);
                 uploadsCompleted++;
                 dom.progressBar.value = (uploadsCompleted / totalUploads) * 100;
                 
-                // 2. Upload keyframes in parallel
                 const uploadPromises = result.keyFramesToCapture.map(async (kf) => {
                     const cleanFileName = result.fileName.split('.').slice(0, -1).join('');
                     const sharpFileName = `${cleanFileName}_${kf.time.toFixed(2)}s_sharp.jpeg`;
@@ -732,13 +759,12 @@
             await updateFileOnGitHub(GITHUB_CONFIG.resultsIndexFile, JSON.stringify(allResultsData, null, 2), currentSha, `Add analysis for ${newAnalyses.length} file(s)`);
             
             toggleAnalysisControls(false);
-            dom.videoFilesInput.value = ''; // Reset file input
+            dom.videoFilesInput.value = '';
             state.videoFiles = [];
             updateAnalyzeButtonState();
             
             await initializeAndLoadGitHubData();
             
-            // Auto-select the first new result
             if (newAnalyses.length > 0) {
                  setTimeout(() => {
                     const firstNewItem = dom.resultsListContainer.querySelector(`[data-analysis-id="${newAnalyses[0].analysisId}"]`);
@@ -757,6 +783,19 @@
             appendLog('> [CANCEL] 사용자에 의해 분석이 중단되었습니다.', 'text-yellow-400');
         }
 
+        function setupModal() {
+            const openModal = () => dom.howItWorksModal.classList.remove('hidden');
+            const closeModal = () => dom.howItWorksModal.classList.add('hidden');
+
+            dom.howItWorksButton.addEventListener('click', openModal);
+            dom.closeModalButton.addEventListener('click', closeModal);
+            dom.howItWorksModal.addEventListener('click', (e) => {
+                if (e.target === dom.howItWorksModal) {
+                    closeModal();
+                }
+            });
+        }
+
         // --- Initializer ---
         async function initializeApp() {
             if (GITHUB_CONFIG.token.includes('PLACEHOLDER')) {
@@ -765,13 +804,12 @@
                 return;
             }
             dom.modelStatus.textContent = '페이지 및 모델 초기화 중...';
-            // Simulating model loading message, actual loading is in worker.
             dom.modelStatus.textContent = '얼굴 인식 모델 로딩 준비 완료!';
             state.modelsLoaded = true;
             updateAnalyzeButtonState();
+            setupModal();
             await initializeAndLoadGitHubData();
 
-            // Event Listeners
             dom.videoFilesInput.addEventListener('change', (event) => {
                 state.videoFiles = Array.from(event.target.files);
                 updateAnalyzeButtonState();
