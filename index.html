@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>포커스 이슈 탐지기 - Ver 0.18</title>
+    <title>포커스 이슈 탐지기 - Ver 0.19</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -141,7 +141,7 @@
     <!-- Chart Tooltip -->
     <div id="chart-tooltip" class="hidden"></div>
     <script>
-        const APP_VERSION = "0.18";
+        const APP_VERSION = "0.19";
         document.title = `포커스 이슈 탐지기 - Ver ${APP_VERSION}`;
         document.getElementById('version-display').textContent = `Ver ${APP_VERSION}`;
         
@@ -731,8 +731,21 @@
             await initializeAndLoadGitHubData();
         });
 
+        function setupModal() {
+            const openModal = () => howItWorksModal.classList.remove('hidden');
+            const closeModal = () => howItWorksModal.classList.add('hidden');
+
+            howItWorksButton.addEventListener('click', openModal);
+            closeModalButton.addEventListener('click', closeModal);
+            howItWorksModal.addEventListener('click', (e) => {
+                if (e.target === howItWorksModal) {
+                    closeModal();
+                }
+            });
+        }
+
         window.onload = initializeApp;
 
     </script>
 </body>
-</ht
+</html>
