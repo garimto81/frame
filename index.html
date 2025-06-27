@@ -15,8 +15,8 @@
         body { font-family: 'Noto Sans KR', sans-serif; }
         .loader { border: 5px solid #f3f3f3; border-top: 5px solid #3498db; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .result-card:hover { background-color: #f9fafb; }
-        /* Custom Tooltip for Chart */
+        .result-item:hover { background-color: #f0f9ff; }
+        .result-item.selected { background-color: #dbeafe; border-left-width: 4px; border-color: #3b82f6; }
         #chart-tooltip {
             position: absolute;
             background: rgba(0, 0, 0, 0.8);
@@ -27,54 +27,67 @@
             opacity: 0;
             transition: opacity 0.1s ease;
             transform: translate(-50%, -110%);
-            z-index: 10;
+            z-index: 50;
         }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-800">
+<body class="bg-gray-100 text-gray-800 h-screen flex flex-col">
 
-    <div class="container mx-auto p-4 md:p-8 max-w-6xl">
-        <header class="text-center mb-8">
-            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">포커스 이슈 탐지기 (GitHub 연동)</h1>
-            <p id="model-status" class="text-lg text-yellow-600 mt-2">인식 모델 로딩 중...</p>
-        </header>
-        
-        <div class="bg-white p-6 rounded-2xl shadow-lg mb-8">
-            <h2 class="text-xl font-semibold mb-4 border-b pb-2">1. 영상 파일 선택</h2>
-            <p class="text-gray-600 mb-4">분석할 영상 클립(.mov, .mp4 등)을 선택해주세요.</p>
-            <input type="file" id="video-files-input" multiple accept="video/mp4,video/quicktime,.mov" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"/>
-        </div>
-
-        <div class="bg-white p-6 rounded-2xl shadow-lg text-center mb-8">
-            <h2 class="text-xl font-semibold mb-4 border-b pb-2">2. 분석 실행</h2>
-            <div class="max-w-md mx-auto mb-6">
-                 <label for="threshold-slider" class="block mb-2 font-medium">흐림 기준값 (Threshold)</label>
-                <div class="flex items-center gap-4">
-                    <input type="range" id="threshold-slider" min="0" max="200" value="50" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
-                    <span id="threshold-value" class="font-bold text-lg text-blue-600 w-12 text-center">50</span>
+    <header class="text-center py-4 border-b bg-white shadow-sm">
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-900">포커스 이슈 탐지기 (GitHub 연동)</h1>
+        <p id="model-status" class="text-sm text-yellow-600 mt-1">인식 모델 로딩 중...</p>
+    </header>
+    
+    <div class="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-4 p-4 overflow-hidden">
+        <!-- Left Panel: Controls & Results List -->
+        <div class="lg:col-span-1 flex flex-col gap-4 overflow-hidden">
+            <div class="bg-white p-6 rounded-2xl shadow-lg">
+                <h2 class="text-xl font-semibold mb-4 border-b pb-2">1. 제어 패널</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label for="video-files-input" class="block text-sm font-medium text-gray-700 mb-1">영상 파일 선택</label>
+                        <input type="file" id="video-files-input" multiple accept="video/mp4,video/quicktime,.mov" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"/>
+                    </div>
+                     <div>
+                        <label for="threshold-slider" class="block text-sm font-medium text-gray-700">흐림 기준값</label>
+                        <div class="flex items-center gap-2">
+                            <input type="range" id="threshold-slider" min="0" max="200" value="50" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                            <span id="threshold-value" class="font-bold text-lg text-blue-600 w-12 text-center">50</span>
+                        </div>
+                    </div>
+                     <button id="analyze-button" class="w-full bg-green-600 text-white font-bold py-3 px-8 rounded-full hover:bg-green-700 transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                        분석 및 GitHub에 저장
+                    </button>
+                    <div id="loading-indicator" class="hidden flex flex-col items-center"><div class="loader"></div><p id="progress-text" class="text-gray-600 mt-2"></p></div>
                 </div>
             </div>
-            <button id="analyze-button" class="bg-green-600 text-white font-bold py-3 px-8 rounded-full hover:bg-green-700 transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed">
-                분석 및 GitHub에 저장
-            </button>
-             <div id="loading-indicator" class="hidden mt-4 flex flex-col items-center"><div class="loader"></div><p id="progress-text" class="text-gray-600 mt-2"></p></div>
-        </div>
-        
-        <div class="bg-white p-6 rounded-2xl shadow-lg mb-8">
-             <h2 class="text-xl font-semibold mb-4 border-b pb-2">3. 과거 분석 결과 (GitHub)</h2>
-             <p class="text-gray-600 mb-2">과거 분석 기록입니다. 그래프 위 빨간 점에 마우스를 올리면 주요 프레임을 확인할 수 있습니다.</p>
-            <div id="results-list-container" class="space-y-4"><p id="results-list-placeholder" class="text-gray-500 text-center py-4">GitHub 정보 확인 중...</p></div>
+            <div class="bg-white p-6 rounded-2xl shadow-lg flex-grow flex flex-col overflow-hidden">
+                <h2 class="text-xl font-semibold mb-4 border-b pb-2">2. 분석 기록</h2>
+                <div id="results-list-container" class="flex-grow overflow-y-auto -mr-2 pr-2">
+                    <p id="results-list-placeholder" class="text-gray-500 text-center py-4">GitHub 정보 확인 중...</p>
+                </div>
+            </div>
         </div>
 
-         <div class="bg-white p-6 rounded-2xl shadow-lg mb-8">
-            <h2 class="text-xl font-semibold mb-4 border-b pb-2">4. 분석 로그</h2>
-            <p class="text-gray-600 mb-2">실시간 분석 로그 또는 선택한 과거 분석의 로그가 표시됩니다.</p>
-            <div id="log-container" class="h-96 overflow-y-auto bg-gray-900 text-white font-mono rounded-lg p-4 border text-sm"><p class="text-gray-400 text-center py-4">분석을 시작하거나 과거 기록을 선택하세요.</p></div>
+        <!-- Right Panel: Details & Logs -->
+        <div class="lg:col-span-2 flex flex-col gap-4 overflow-hidden">
+            <div class="bg-white p-6 rounded-2xl shadow-lg flex-grow flex flex-col overflow-hidden">
+                <h2 class="text-xl font-semibold mb-4 border-b pb-2">3. 상세 분석 그래프</h2>
+                 <p class="text-sm text-gray-600 mb-2 -mt-2">그래프 위 빨간 점에 마우스를 올리면 주요 프레임을 확인할 수 있습니다.</p>
+                <div id="chart-container" class="relative flex-grow min-h-0">
+                    <p id="chart-placeholder" class="text-gray-500 text-center absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">왼쪽 목록에서 분석 기록을 선택하세요.</p>
+                    <canvas id="detail-chart"></canvas>
+                </div>
+            </div>
+             <div class="bg-white p-6 rounded-2xl shadow-lg flex-grow flex flex-col overflow-hidden">
+                <h2 class="text-xl font-semibold mb-4 border-b pb-2">4. 분석 로그</h2>
+                <div id="log-container" class="h-full overflow-y-auto bg-gray-900 text-white font-mono rounded-lg p-4 border text-sm"><p id="log-placeholder" class="text-gray-400 text-center py-4">분석을 시작하거나 과거 기록을 선택하세요.</p></div>
+            </div>
         </div>
     </div>
 
     <!-- Chart Tooltip -->
-    <div id="chart-tooltip" class="rounded-lg shadow-xl hidden"></div>
+    <div id="chart-tooltip" class="hidden"></div>
 
     <script>
         // --- DOM Element References ---
@@ -88,6 +101,9 @@
         const logContainer = document.getElementById('log-container');
         const resultsListContainer = document.getElementById('results-list-container');
         const resultsListPlaceholder = document.getElementById('results-list-placeholder');
+        const chartContainer = document.getElementById('chart-container');
+        const chartPlaceholder = document.getElementById('chart-placeholder');
+        const detailChartCanvas = document.getElementById('detail-chart');
         const chartTooltip = document.getElementById('chart-tooltip');
 
         // --- Global State ---
@@ -95,6 +111,7 @@
         let modelsLoaded = false;
         const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
         let allAnalysisData = [];
+        let detailChart = null;
 
         // --- GitHub API State ---
         const GITHUB_CONFIG = {
@@ -192,7 +209,7 @@
             if(resultsFile && resultsFile.content) {
                 const content = decodeURIComponent(escape(atob(resultsFile.content)));
                 allAnalysisData = JSON.parse(content).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-                renderAnalysisResults();
+                renderAnalysisResultsList();
             } else {
                  resultsListPlaceholder.textContent = '아직 저장된 분석 기록이 없습니다.';
             }
@@ -216,105 +233,119 @@
             logContainer.appendChild(logEntry);
             logContainer.scrollTop = logContainer.scrollHeight;
         }
-        
+
+        // --- Tooltip Handler ---
         const externalTooltipHandler = (context) => {
             const {chart, tooltip} = context;
-            let tooltipEl = chart.canvas.parentNode.querySelector('#chart-tooltip');
             if (tooltip.opacity === 0) {
-                tooltipEl.style.opacity = 0;
+                chartTooltip.style.opacity = 0;
+                chartTooltip.classList.add('hidden');
                 return;
             }
             
-            const dataPointIndex = tooltip.dataPoints[0].dataIndex;
             const analysisId = chart.canvas.dataset.analysisId;
             const analysisData = allAnalysisData.find(d => d.analysisId === analysisId);
             const keyFrameData = analysisData.keyFrames.find(kf => kf.time === tooltip.dataPoints[0].parsed.x);
 
             if (keyFrameData) {
-                tooltipEl.innerHTML = `<div class="flex gap-2 p-1"><div class="text-center"><p class="text-xs font-semibold text-green-400 mb-1">선명</p><img src="${keyFrameData.sharpUrl}" class="w-24 h-24 object-cover rounded"></div><div class="text-center"><p class="text-xs font-semibold text-red-400 mb-1">흐림</p><img src="${keyFrameData.blurryUrl}" class="w-24 h-24 object-cover rounded"></div></div>`;
-                tooltipEl.style.opacity = 1;
-                tooltipEl.style.left = tooltip.caretX + 'px';
-                tooltipEl.style.top = tooltip.caretY + 'px';
+                chartTooltip.innerHTML = `<div class="flex gap-2 p-1"><div class="text-center"><p class="text-xs font-semibold text-green-400 mb-1">선명</p><img src="${keyFrameData.sharpUrl}" class="w-24 h-24 object-cover rounded"></div><div class="text-center"><p class="text-xs font-semibold text-red-400 mb-1">흐림</p><img src="${keyFrameData.blurryUrl}" class="w-24 h-24 object-cover rounded"></div></div>`;
+                chartTooltip.style.opacity = 1;
+                chartTooltip.classList.remove('hidden');
+                
+                // **FIXED**: Correct tooltip positioning
+                const { offsetLeft, offsetTop } = chart.canvas;
+                chartTooltip.style.left = offsetLeft + tooltip.caretX + 'px';
+                chartTooltip.style.top = offsetTop + tooltip.caretY + 'px';
+
             } else {
-                 tooltipEl.style.opacity = 0;
+                 chartTooltip.style.opacity = 0;
+                 chartTooltip.classList.add('hidden');
             }
         };
 
-        function renderAnalysisResults() {
+        // --- Render Functions ---
+        function renderAnalysisResultsList() {
             resultsListPlaceholder.classList.add('hidden');
             resultsListContainer.innerHTML = '';
             
-            allAnalysisData.forEach(data => {
-                const card = document.createElement('div');
-                card.className = 'result-card p-4 bg-white rounded-lg shadow-md border';
-                card.dataset.analysisId = data.analysisId;
-                card.innerHTML = `<div class="flex justify-between items-center text-sm mb-2"><p class="font-medium truncate pr-4">${data.fileName}</p><p class="font-semibold ${data.problematic ? 'text-red-500' : 'text-green-600'}">Avg: ${data.avgScore.toFixed(2)}</p></div><div class="relative h-16"><canvas id="chart-${data.analysisId}"></canvas></div>`;
-                resultsListContainer.appendChild(card);
-                
-                const ctx = document.getElementById(`chart-${data.analysisId}`).getContext('2d');
-                ctx.canvas.dataset.analysisId = data.analysisId;
-
-                const blurryPoints = data.keyFrames ? data.keyFrames.map(kf => ({x: kf.time, y: data.frameScores.find(fs => fs.time === kf.time)?.score || 0})) : [];
-
-                new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        datasets: [
-                            {
-                                label: '선명도',
-                                data: data.frameScores.map(fs => ({x: fs.time, y: fs.score})),
-                                borderColor: 'rgba(59, 130, 246, 0.7)',
-                                borderWidth: 2,
-                                pointRadius: 0,
-                                tension: 0.1,
-                            },
-                            {
-                                label: '흐림 감지',
-                                data: blurryPoints,
-                                backgroundColor: 'rgb(239, 68, 68)',
-                                pointRadius: 5,
-                                pointHoverRadius: 7,
-                                type: 'scatter',
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: { intersect: false, mode: 'index' },
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: { enabled: false, external: externalTooltipHandler, position: 'nearest' }
-                        },
-                        scales: { x: { type: 'linear', title: { display: true, text: '시간 (초)' } }, y: { beginAtZero: true, title: { display: true, text: '점수' } } }
-                    }
-                });
+            allAnalysisData.forEach((data, index) => {
+                const item = document.createElement('div');
+                item.className = 'result-item p-3 border-b cursor-pointer';
+                item.dataset.analysisId = data.analysisId;
+                item.innerHTML = `
+                    <p class="font-medium text-gray-800 truncate">${data.fileName}</p>
+                    <p class="text-sm text-gray-500">${new Date(data.timestamp).toLocaleString('ko-KR')}</p>
+                    <p class="text-sm font-semibold ${data.problematic ? 'text-red-500' : 'text-green-600'}">Avg Score: ${data.avgScore.toFixed(2)}</p>
+                `;
+                resultsListContainer.appendChild(item);
             });
 
-            resultsListContainer.querySelectorAll('.result-card').forEach(card => {
-                card.addEventListener('click', async (e) => {
+            resultsListContainer.querySelectorAll('.result-item').forEach(item => {
+                item.addEventListener('click', async (e) => {
+                     resultsListContainer.querySelectorAll('.result-item').forEach(r => r.classList.remove('selected'));
+                     item.classList.add('selected');
                     const analysisId = e.currentTarget.dataset.analysisId;
-                    const logFile = await getFileFromGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/log.txt`);
-                    if (logFile && logFile.content) {
-                        const logContent = decodeURIComponent(escape(atob(logFile.content)));
-                        logContainer.innerHTML = '';
-                        logContent.split('\n').forEach(line => appendLog(line));
-                    } else {
-                        logContainer.innerHTML = '<p class="text-gray-400 text-center py-4">로그 파일을 찾을 수 없습니다.</p>';
-                    }
+                    renderDetailedView(analysisId);
                 });
             });
         }
-        
+
+        async function renderDetailedView(analysisId) {
+            chartPlaceholder.classList.add('hidden');
+            logContainer.innerHTML = '<p class="text-gray-400 text-center py-4">로그를 불러오는 중...</p>';
+            
+            const resultData = allAnalysisData.find(d => d.analysisId === analysisId);
+            if (!resultData) return;
+
+            // Render Chart
+            if (detailChart) {
+                detailChart.destroy();
+            }
+            detailChartCanvas.dataset.analysisId = analysisId;
+            const blurryPoints = resultData.keyFrames ? resultData.keyFrames.map(kf => ({x: kf.time, y: resultData.frameScores.find(fs => fs.time === kf.time)?.score || 0})) : [];
+            detailChart = new Chart(detailChartCanvas, {
+                type: 'line',
+                data: {
+                    datasets: [
+                        { label: '선명도', data: resultData.frameScores.map(fs => ({x: fs.time, y: fs.score})), borderColor: 'rgba(59, 130, 246, 0.7)', borderWidth: 2, pointRadius: 0, tension: 0.1, },
+                        { label: '흐림 감지', data: blurryPoints, backgroundColor: 'rgb(239, 68, 68)', pointRadius: 5, pointHoverRadius: 7, type: 'scatter', }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' },
+                    plugins: { legend: { display: false }, tooltip: { enabled: false, external: externalTooltipHandler, position: 'nearest' } },
+                    scales: { x: { type: 'linear', title: { display: true, text: '시간 (초)' } }, y: { beginAtZero: true, title: { display: true, text: '점수' } } }
+                }
+            });
+
+            // Render Log File
+            const logFile = await getFileFromGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/log.txt`);
+            if (logFile && logFile.content) {
+                const logContent = decodeURIComponent(escape(atob(logFile.content)));
+                logContainer.innerHTML = '';
+                logContent.split('\n').forEach(line => {
+                    const logEntry = document.createElement('div');
+                    logEntry.textContent = line;
+                    if(line.includes('흐림')) logEntry.className = 'text-red-500';
+                    else if(line.includes('선명')) logEntry.className = 'text-green-500';
+                    else if(line.startsWith('> [START]')) logEntry.className = 'text-cyan-400';
+                    else logEntry.className = 'text-gray-400';
+                    logContainer.appendChild(logEntry);
+                });
+            } else {
+                logContainer.innerHTML = '<p class="text-gray-400 text-center py-4">로그 파일을 찾을 수 없습니다.</p>';
+            }
+        }
+
         // --- Event Handlers & Main Analysis Logic ---
         videoFilesInput.addEventListener('change', (event) => { videoFiles = Array.from(event.target.files); updateAnalyzeButtonState(); });
         thresholdSlider.addEventListener('input', (event) => { thresholdValueEl.textContent = event.target.value; });
 
-        analyzeButton.addEventListener('click', async () => { /* ... */
+        analyzeButton.addEventListener('click', async () => {
             if (videoFiles.length === 0) { alert('먼저 분석할 영상 파일을 선택해주세요.'); return; }
             loadingIndicator.style.display = 'flex';
             analyzeButton.disabled = true;
-            logContainer.innerHTML = ''; // Clear live log
+            logContainer.innerHTML = '';
             
             const threshold = parseFloat(thresholdSlider.value);
             const analysisVideo = document.createElement('video');
@@ -331,7 +362,7 @@
                 const cleanFileNameForId = file.name.replace(/[^a-zA-Z0-9]/g, '_');
                 const analysisId = `${cleanFileNameForId}_${new Date().toISOString()}`;
                 let liveLogContent = `[START] '${file.name}' 분석을 시작합니다. (ID: ${analysisId})\n`;
-                appendLog(`[START] '${file.name}' 분석 (ID: ${analysisId})`, 'text-cyan-400');
+                appendLog(`[START] '${file.name}' 분석 (ID: ${analysisId})`);
                 
                 const fileURL = URL.createObjectURL(file);
                 analysisVideo.src = fileURL;
