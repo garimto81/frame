@@ -355,15 +355,22 @@
             const body = {
                 message: commitMessage,
                 content: btoa(unescape(encodeURIComponent(content))),
-                sha: sha
             };
+            // For updates, 'sha' is required. For new files, it must be omitted.
+            if (sha) {
+                body.sha = sha;
+            }
+            
             try {
                 const response = await fetch(GITHUB_API_URL + path, {
                     method: 'PUT',
                     headers: GITHUB_HEADERS,
                     body: JSON.stringify(body)
                 });
-                if (!response.ok) throw new Error(`GitHub API Error: ${response.status} ${response.statusText}`);
+                if (!response.ok) {
+                    const errorBody = await response.json();
+                    throw new Error(`GitHub API Error: ${response.status} ${response.statusText} - ${errorBody.message}`);
+                }
             } catch (error) {
                 console.error(`GitHub Update Error: ${path}`, error);
                 throw error; // Rethrow to handle it in the calling function
@@ -561,22 +568,29 @@
         // --- Core Logic ---
         async function initializeAndLoadGitHubData() {
             dom.resultsListPlaceholder.textContent = 'GitHub에서 분석 기록을 확인합니다...';
-            let resultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsIndexFile);
+            try {
+                let resultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsIndexFile);
 
-            if (resultsFile === 'error') { dom.resultsListPlaceholder.textContent = 'GitHub 저장소 접근 실패.'; return; }
-            
-            if (resultsFile === null) { // Create if not exists
-                await updateFileOnGitHub(GITHUB_CONFIG.resultsIndexFile, '[]', null, 'Initialize results.json');
-                resultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsIndexFile);
+                if (resultsFile === 'error') { throw new Error('GitHub 저장소 접근에 실패했습니다.'); }
+                
+                if (resultsFile === null) { // Create if not exists
+                    console.log('results.json not found. Creating a new one.');
+                    await updateFileOnGitHub(GITHUB_CONFIG.resultsIndexFile, '[]', null, 'Initialize results.json');
+                    resultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsIndexFile);
+                }
+                
+                if(resultsFile && resultsFile.content) {
+                    const content = decodeURIComponent(escape(atob(resultsFile.content)));
+                    state.allAnalysisData = JSON.parse(content).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                } else {
+                    state.allAnalysisData = [];
+                }
+            } catch(error) {
+                console.error("Error initializing data:", error);
+                dom.resultsListPlaceholder.textContent = `오류: ${error.message}`;
+            } finally {
+                renderAnalysisResultsList();
             }
-            
-            if(resultsFile && resultsFile.content) {
-                const content = decodeURIComponent(escape(atob(resultsFile.content)));
-                state.allAnalysisData = JSON.parse(content).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-            } else {
-                state.allAnalysisData = [];
-            }
-            renderAnalysisResultsList();
         }
 
         async function handleManualCorrection(analysisId, time) {
