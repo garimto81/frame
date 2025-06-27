@@ -59763,12 +59763,14 @@
       {
         "time": 158,
         "sharpUrl": "https://raw.githubusercontent.com/garimto81/frame/main/data/assets/DTD_LIVE_Table_0912_mp4_2025-06-27T04%3A49%3A23.437Z/DTD%20LIVE%20Table_0912_158.00s_sharp.jpeg",
-        "blurryUrl": "https://raw.githubusercontent.com/garimto81/frame/main/data/assets/DTD_LIVE_Table_0912_mp4_2025-06-27T04%3A49%3A23.437Z/DTD%20LIVE%20Table_0912_158.00s_blurry.jpeg"
+        "blurryUrl": "https://raw.githubusercontent.com/garimto81/frame/main/data/assets/DTD_LIVE_Table_0912_mp4_2025-06-27T04%3A49%3A23.437Z/DTD%20LIVE%20Table_0912_158.00s_blurry.jpeg",
+        "manualOverride": "ok"
       },
       {
         "time": 249.5,
         "sharpUrl": "https://raw.githubusercontent.com/garimto81/frame/main/data/assets/DTD_LIVE_Table_0912_mp4_2025-06-27T04%3A49%3A23.437Z/DTD%20LIVE%20Table_0912_249.50s_sharp.jpeg",
-        "blurryUrl": "https://raw.githubusercontent.com/garimto81/frame/main/data/assets/DTD_LIVE_Table_0912_mp4_2025-06-27T04%3A49%3A23.437Z/DTD%20LIVE%20Table_0912_249.50s_blurry.jpeg"
+        "blurryUrl": "https://raw.githubusercontent.com/garimto81/frame/main/data/assets/DTD_LIVE_Table_0912_mp4_2025-06-27T04%3A49%3A23.437Z/DTD%20LIVE%20Table_0912_249.50s_blurry.jpeg",
+        "manualOverride": "ok"
       }
     ]
   },
