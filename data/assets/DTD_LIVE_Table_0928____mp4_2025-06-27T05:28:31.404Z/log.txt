@@ -1,0 +1,631 @@
+[START] 'DTD LIVE Table_0928_다시.mp4' 분석을 시작합니다. (ID: DTD_LIVE_Table_0928____mp4_2025-06-27T05:28:31.404Z)
+Time: 0.00s | Status: 얼굴 미검출
+Time: 0.50s | Score: 202.80 | Status: 선명
+Time: 1.00s | Score: 170.32 | Status: 선명
+Time: 1.50s | Score: 54.00 | Status: 선명
+Time: 2.00s | Status: 얼굴 미검출
+Time: 2.50s | Score: 174.98 | Status: 선명
+Time: 3.00s | Score: 106.50 | Status: 선명
+Time: 3.50s | Score: 152.65 | Status: 선명
+Time: 4.00s | Score: 198.62 | Status: 선명
+Time: 4.50s | Score: 168.91 | Status: 선명
+Time: 5.00s | Score: 132.89 | Status: 선명
+Time: 5.50s | Score: 338.77 | Status: 선명
+Time: 6.00s | Score: 191.98 | Status: 선명
+Time: 6.50s | Score: 188.28 | Status: 선명
+Time: 7.00s | Score: 262.76 | Status: 선명
+Time: 7.50s | Score: 460.72 | Status: 선명
+Time: 8.00s | Score: 100.40 | Status: 선명
+Time: 8.50s | Score: 137.44 | Status: 선명
+Time: 9.00s | Score: 131.15 | Status: 선명
+Time: 9.50s | Score: 152.69 | Status: 선명
+Time: 10.00s | Score: 118.84 | Status: 선명
+Time: 10.50s | Score: 130.75 | Status: 선명
+Time: 11.00s | Score: 173.30 | Status: 선명
+Time: 11.50s | Score: 160.80 | Status: 선명
+Time: 12.00s | Score: 137.10 | Status: 선명
+Time: 12.50s | Status: 얼굴 미검출
+Time: 13.00s | Status: 얼굴 미검출
+Time: 13.50s | Status: 얼굴 미검출
+Time: 14.00s | Status: 얼굴 미검출
+Time: 14.50s | Score: 137.41 | Status: 선명
+Time: 15.00s | Score: 151.72 | Status: 선명
+Time: 15.50s | Score: 177.74 | Status: 선명
+Time: 16.00s | Score: 186.47 | Status: 선명
+Time: 16.50s | Score: 94.13 | Status: 선명
+Time: 17.00s | Score: 108.46 | Status: 선명
+Time: 17.50s | Score: 183.94 | Status: 선명
+Time: 18.00s | Score: 139.69 | Status: 선명
+Time: 18.50s | Score: 172.51 | Status: 선명
+Time: 19.00s | Score: 140.09 | Status: 선명
+Time: 19.50s | Score: 181.54 | Status: 선명
+Time: 20.00s | Score: 163.04 | Status: 선명
+Time: 20.50s | Score: 158.92 | Status: 선명
+Time: 21.00s | Status: 얼굴 미검출
+Time: 21.50s | Status: 얼굴 미검출
+Time: 22.00s | Score: 201.27 | Status: 선명
+Time: 22.50s | Score: 255.97 | Status: 선명
+Time: 23.00s | Score: 211.36 | Status: 선명
+Time: 23.50s | Score: 264.59 | Status: 선명
+Time: 24.00s | Score: 167.72 | Status: 선명
+Time: 24.50s | Score: 239.32 | Status: 선명
+Time: 25.00s | Score: 399.95 | Status: 선명
+Time: 25.50s | Score: 455.14 | Status: 선명
+Time: 26.00s | Score: 400.06 | Status: 선명
+Time: 26.50s | Score: 438.13 | Status: 선명
+Time: 27.00s | Score: 364.84 | Status: 선명
+Time: 27.50s | Score: 342.40 | Status: 선명
+Time: 28.00s | Score: 308.97 | Status: 선명
+Time: 28.50s | Score: 367.83 | Status: 선명
+Time: 29.00s | Score: 396.70 | Status: 선명
+Time: 29.50s | Score: 391.94 | Status: 선명
+Time: 30.00s | Score: 396.12 | Status: 선명
+Time: 30.50s | Score: 395.48 | Status: 선명
+Time: 31.00s | Score: 422.78 | Status: 선명
+Time: 31.50s | Score: 444.39 | Status: 선명
+Time: 32.00s | Score: 451.51 | Status: 선명
+Time: 32.50s | Score: 383.98 | Status: 선명
+Time: 33.00s | Score: 394.69 | Status: 선명
+Time: 33.50s | Score: 374.07 | Status: 선명
+Time: 34.00s | Score: 417.87 | Status: 선명
+Time: 34.50s | Score: 399.75 | Status: 선명
+Time: 35.00s | Score: 458.35 | Status: 선명
+Time: 35.50s | Score: 457.65 | Status: 선명
+Time: 36.00s | Score: 405.54 | Status: 선명
+Time: 36.50s | Score: 369.22 | Status: 선명
+Time: 37.00s | Score: 375.04 | Status: 선명
+Time: 37.50s | Score: 362.71 | Status: 선명
+Time: 38.00s | Score: 374.02 | Status: 선명
+Time: 38.50s | Score: 380.12 | Status: 선명
+Time: 39.00s | Score: 353.54 | Status: 선명
+Time: 39.50s | Score: 342.82 | Status: 선명
+Time: 40.00s | Score: 311.22 | Status: 선명
+Time: 40.50s | Score: 265.72 | Status: 선명
+Time: 41.00s | Score: 294.54 | Status: 선명
+Time: 41.50s | Score: 312.31 | Status: 선명
+Time: 42.00s | Score: 142.90 | Status: 선명
+Time: 42.50s | Score: 151.32 | Status: 선명
+Time: 43.00s | Score: 150.55 | Status: 선명
+Time: 43.50s | Score: 160.74 | Status: 선명
+Time: 44.00s | Score: 161.73 | Status: 선명
+Time: 44.50s | Score: 161.26 | Status: 선명
+Time: 45.00s | Score: 149.14 | Status: 선명
+Time: 45.50s | Score: 487.04 | Status: 선명
+Time: 46.00s | Status: 얼굴 미검출
+Time: 46.50s | Score: 285.22 | Status: 선명
+Time: 47.00s | Score: 219.01 | Status: 선명
+Time: 47.50s | Score: 162.75 | Status: 선명
+Time: 48.00s | Score: 139.86 | Status: 선명
+Time: 48.50s | Score: 138.15 | Status: 선명
+Time: 49.00s | Score: 139.60 | Status: 선명
+Time: 49.50s | Score: 127.66 | Status: 선명
+Time: 50.00s | Score: 136.24 | Status: 선명
+Time: 50.50s | Score: 126.22 | Status: 선명
+Time: 51.00s | Score: 120.73 | Status: 선명
+Time: 51.50s | Score: 116.09 | Status: 선명
+Time: 52.00s | Score: 117.28 | Status: 선명
+Time: 52.50s | Score: 120.82 | Status: 선명
+Time: 53.00s | Score: 129.74 | Status: 선명
+Time: 53.50s | Score: 126.75 | Status: 선명
+Time: 54.00s | Score: 135.53 | Status: 선명
+Time: 54.50s | Score: 120.47 | Status: 선명
+Time: 55.00s | Score: 136.85 | Status: 선명
+Time: 55.50s | Score: 136.33 | Status: 선명
+Time: 56.00s | Score: 136.51 | Status: 선명
+Time: 56.50s | Score: 127.39 | Status: 선명
+Time: 57.00s | Score: 114.52 | Status: 선명
+Time: 57.50s | Score: 117.96 | Status: 선명
+Time: 58.00s | Score: 133.17 | Status: 선명
+Time: 58.50s | Score: 125.08 | Status: 선명
+Time: 59.00s | Score: 355.35 | Status: 선명
+Time: 59.50s | Score: 339.43 | Status: 선명
+Time: 60.00s | Score: 356.82 | Status: 선명
+Time: 60.50s | Score: 440.46 | Status: 선명
+Time: 61.00s | Score: 496.06 | Status: 선명
+Time: 61.50s | Score: 419.20 | Status: 선명
+Time: 62.00s | Score: 344.33 | Status: 선명
+Time: 62.50s | Score: 355.36 | Status: 선명
+Time: 63.00s | Score: 559.13 | Status: 선명
+Time: 63.50s | Score: 693.10 | Status: 선명
+Time: 64.00s | Score: 552.98 | Status: 선명
+Time: 64.50s | Score: 638.67 | Status: 선명
+Time: 65.00s | Score: 587.65 | Status: 선명
+Time: 65.50s | Score: 501.87 | Status: 선명
+Time: 66.00s | Score: 209.41 | Status: 선명
+Time: 66.50s | Score: 580.49 | Status: 선명
+Time: 67.00s | Score: 528.00 | Status: 선명
+Time: 67.50s | Score: 540.95 | Status: 선명
+Time: 68.00s | Score: 434.72 | Status: 선명
+Time: 68.50s | Status: 얼굴 미검출
+Time: 69.00s | Score: 632.25 | Status: 선명
+Time: 69.50s | Score: 510.60 | Status: 선명
+Time: 70.00s | Score: 305.56 | Status: 선명
+Time: 70.50s | Status: 얼굴 미검출
+Time: 71.00s | Score: 432.02 | Status: 선명
+Time: 71.50s | Score: 419.31 | Status: 선명
+Time: 72.00s | Score: 337.50 | Status: 선명
+Time: 72.50s | Score: 393.47 | Status: 선명
+Time: 73.00s | Score: 324.75 | Status: 선명
+Time: 73.50s | Score: 158.01 | Status: 선명
+Time: 74.00s | Score: 435.85 | Status: 선명
+Time: 74.50s | Score: 384.35 | Status: 선명
+Time: 75.00s | Score: 291.56 | Status: 선명
+Time: 75.50s | Score: 299.10 | Status: 선명
+Time: 76.00s | Score: 324.81 | Status: 선명
+Time: 76.50s | Score: 497.87 | Status: 선명
+Time: 77.00s | Score: 549.13 | Status: 선명
+Time: 77.50s | Score: 543.31 | Status: 선명
+Time: 78.00s | Score: 556.59 | Status: 선명
+Time: 78.50s | Score: 435.24 | Status: 선명
+Time: 79.00s | Score: 358.95 | Status: 선명
+Time: 79.50s | Score: 308.41 | Status: 선명
+Time: 80.00s | Score: 232.42 | Status: 선명
+Time: 80.50s | Score: 254.64 | Status: 선명
+Time: 81.00s | Score: 225.83 | Status: 선명
+Time: 81.50s | Score: 308.18 | Status: 선명
+Time: 82.00s | Score: 251.19 | Status: 선명
+Time: 82.50s | Score: 257.23 | Status: 선명
+Time: 83.00s | Status: 얼굴 미검출
+Time: 83.50s | Score: 303.23 | Status: 선명
+Time: 84.00s | Score: 496.46 | Status: 선명
+Time: 84.50s | Score: 471.38 | Status: 선명
+Time: 85.00s | Score: 414.32 | Status: 선명
+Time: 85.50s | Score: 487.72 | Status: 선명
+Time: 86.00s | Score: 546.57 | Status: 선명
+Time: 86.50s | Score: 455.48 | Status: 선명
+Time: 87.00s | Score: 378.45 | Status: 선명
+Time: 87.50s | Score: 371.81 | Status: 선명
+Time: 88.00s | Score: 309.18 | Status: 선명
+Time: 88.50s | Score: 527.91 | Status: 선명
+Time: 89.00s | Score: 551.20 | Status: 선명
+Time: 89.50s | Score: 584.83 | Status: 선명
+Time: 90.00s | Score: 370.86 | Status: 선명
+Time: 90.50s | Score: 328.27 | Status: 선명
+Time: 91.00s | Score: 396.22 | Status: 선명
+Time: 91.50s | Score: 211.11 | Status: 선명
+Time: 92.00s | Score: 307.20 | Status: 선명
+Time: 92.50s | Score: 387.34 | Status: 선명
+Time: 93.00s | Score: 440.67 | Status: 선명
+Time: 93.50s | Score: 390.20 | Status: 선명
+Time: 94.00s | Score: 255.74 | Status: 선명
+Time: 94.50s | Score: 400.55 | Status: 선명
+Time: 95.00s | Score: 331.50 | Status: 선명
+Time: 95.50s | Score: 395.45 | Status: 선명
+Time: 96.00s | Score: 442.35 | Status: 선명
+Time: 96.50s | Score: 372.77 | Status: 선명
+Time: 97.00s | Score: 501.25 | Status: 선명
+Time: 97.50s | Status: 얼굴 미검출
+Time: 98.00s | Status: 얼굴 미검출
+Time: 98.50s | Score: 236.61 | Status: 선명
+Time: 99.00s | Score: 413.75 | Status: 선명
+Time: 99.50s | Score: 465.04 | Status: 선명
+Time: 100.00s | Score: 605.48 | Status: 선명
+Time: 100.50s | Score: 809.68 | Status: 선명
+Time: 101.00s | Status: 얼굴 미검출
+Time: 101.50s | Status: 얼굴 미검출
+Time: 102.00s | Status: 얼굴 미검출
+Time: 102.50s | Score: 216.73 | Status: 선명
+Time: 103.00s | Score: 105.71 | Status: 선명
+Time: 103.50s | Status: 얼굴 미검출
+Time: 104.00s | Score: 366.52 | Status: 선명
+Time: 104.50s | Score: 355.53 | Status: 선명
+Time: 105.00s | Score: 349.47 | Status: 선명
+Time: 105.50s | Status: 얼굴 미검출
+Time: 106.00s | Status: 얼굴 미검출
+Time: 106.50s | Status: 얼굴 미검출
+Time: 107.00s | Status: 얼굴 미검출
+Time: 107.50s | Status: 얼굴 미검출
+Time: 108.00s | Status: 얼굴 미검출
+Time: 108.50s | Status: 얼굴 미검출
+Time: 109.00s | Status: 얼굴 미검출
+Time: 109.50s | Status: 얼굴 미검출
+Time: 110.00s | Status: 얼굴 미검출
+Time: 110.50s | Status: 얼굴 미검출
+Time: 111.00s | Status: 얼굴 미검출
+Time: 111.50s | Status: 얼굴 미검출
+Time: 112.00s | Status: 얼굴 미검출
+Time: 112.50s | Status: 얼굴 미검출
+Time: 113.00s | Status: 얼굴 미검출
+Time: 113.50s | Status: 얼굴 미검출
+Time: 114.00s | Status: 얼굴 미검출
+Time: 114.50s | Status: 얼굴 미검출
+Time: 115.00s | Status: 얼굴 미검출
+Time: 115.50s | Status: 얼굴 미검출
+Time: 116.00s | Status: 얼굴 미검출
+Time: 116.50s | Status: 얼굴 미검출
+Time: 117.00s | Status: 얼굴 미검출
+Time: 117.50s | Status: 얼굴 미검출
+Time: 118.00s | Status: 얼굴 미검출
+Time: 118.50s | Status: 얼굴 미검출
+Time: 119.00s | Status: 얼굴 미검출
+Time: 119.50s | Status: 얼굴 미검출
+Time: 120.00s | Status: 얼굴 미검출
+Time: 120.50s | Status: 얼굴 미검출
+Time: 121.00s | Status: 얼굴 미검출
+Time: 121.50s | Status: 얼굴 미검출
+Time: 122.00s | Status: 얼굴 미검출
+Time: 122.50s | Status: 얼굴 미검출
+Time: 123.00s | Status: 얼굴 미검출
+Time: 123.50s | Status: 얼굴 미검출
+Time: 124.00s | Status: 얼굴 미검출
+Time: 124.50s | Status: 얼굴 미검출
+Time: 125.00s | Status: 얼굴 미검출
+Time: 125.50s | Status: 얼굴 미검출
+Time: 126.00s | Status: 얼굴 미검출
+Time: 126.50s | Status: 얼굴 미검출
+Time: 127.00s | Status: 얼굴 미검출
+Time: 127.50s | Status: 얼굴 미검출
+Time: 128.00s | Status: 얼굴 미검출
+Time: 128.50s | Status: 얼굴 미검출
+Time: 129.00s | Status: 얼굴 미검출
+Time: 129.50s | Status: 얼굴 미검출
+Time: 130.00s | Status: 얼굴 미검출
+Time: 130.50s | Status: 얼굴 미검출
+Time: 131.00s | Status: 얼굴 미검출
+Time: 131.50s | Status: 얼굴 미검출
+Time: 132.00s | Status: 얼굴 미검출
+Time: 132.50s | Status: 얼굴 미검출
+Time: 133.00s | Status: 얼굴 미검출
+Time: 133.50s | Status: 얼굴 미검출
+Time: 134.00s | Status: 얼굴 미검출
+Time: 134.50s | Score: 69.05 | Status: 선명
+Time: 135.00s | Score: 85.13 | Status: 선명
+Time: 135.50s | Score: 100.71 | Status: 선명
+Time: 136.00s | Score: 97.99 | Status: 선명
+Time: 136.50s | Score: 84.09 | Status: 선명
+Time: 137.00s | Score: 77.04 | Status: 선명
+Time: 137.50s | Score: 84.53 | Status: 선명
+Time: 138.00s | Score: 67.59 | Status: 선명
+Time: 138.50s | Score: 89.00 | Status: 선명
+Time: 139.00s | Score: 100.57 | Status: 선명
+Time: 139.50s | Score: 85.51 | Status: 선명
+Time: 140.00s | Score: 80.50 | Status: 선명
+Time: 140.50s | Score: 103.41 | Status: 선명
+Time: 141.00s | Score: 100.50 | Status: 선명
+Time: 141.50s | Score: 113.51 | Status: 선명
+Time: 142.00s | Score: 102.58 | Status: 선명
+Time: 142.50s | Score: 124.77 | Status: 선명
+Time: 143.00s | Score: 89.08 | Status: 선명
+Time: 143.50s | Score: 90.94 | Status: 선명
+Time: 144.00s | Score: 103.80 | Status: 선명
+Time: 144.50s | Score: 103.49 | Status: 선명
+Time: 145.00s | Score: 105.12 | Status: 선명
+Time: 145.50s | Score: 113.80 | Status: 선명
+Time: 146.00s | Score: 125.58 | Status: 선명
+Time: 146.50s | Score: 85.72 | Status: 선명
+Time: 147.00s | Score: 88.08 | Status: 선명
+Time: 147.50s | Score: 89.49 | Status: 선명
+Time: 148.00s | Score: 99.56 | Status: 선명
+Time: 148.50s | Score: 188.14 | Status: 선명
+Time: 149.00s | Score: 168.75 | Status: 선명
+Time: 149.50s | Score: 138.45 | Status: 선명
+Time: 150.00s | Score: 139.65 | Status: 선명
+Time: 150.50s | Score: 146.19 | Status: 선명
+Time: 151.00s | Score: 129.71 | Status: 선명
+Time: 151.50s | Score: 164.76 | Status: 선명
+Time: 152.00s | Status: 얼굴 미검출
+Time: 152.50s | Score: 152.08 | Status: 선명
+Time: 153.00s | Status: 얼굴 미검출
+Time: 153.50s | Score: 370.77 | Status: 선명
+Time: 154.00s | Score: 372.26 | Status: 선명
+Time: 154.50s | Score: 403.45 | Status: 선명
+Time: 155.00s | Score: 332.81 | Status: 선명
+Time: 155.50s | Score: 422.13 | Status: 선명
+Time: 156.00s | Score: 374.01 | Status: 선명
+Time: 156.50s | Score: 336.54 | Status: 선명
+Time: 157.00s | Score: 312.05 | Status: 선명
+Time: 157.50s | Score: 492.19 | Status: 선명
+Time: 158.00s | Score: 474.62 | Status: 선명
+Time: 158.50s | Score: 495.33 | Status: 선명
+Time: 159.00s | Status: 얼굴 미검출
+Time: 159.50s | Score: 545.93 | Status: 선명
+Time: 160.00s | Score: 362.40 | Status: 선명
+Time: 160.50s | Score: 486.75 | Status: 선명
+Time: 161.00s | Status: 얼굴 미검출
+Time: 161.50s | Score: 523.22 | Status: 선명
+Time: 162.00s | Score: 588.92 | Status: 선명
+Time: 162.50s | Score: 338.20 | Status: 선명
+Time: 163.00s | Status: 얼굴 미검출
+Time: 163.50s | Score: 454.14 | Status: 선명
+Time: 164.00s | Score: 278.04 | Status: 선명
+Time: 164.50s | Score: 261.89 | Status: 선명
+Time: 165.00s | Score: 279.92 | Status: 선명
+Time: 165.50s | Score: 327.17 | Status: 선명
+Time: 166.00s | Score: 223.63 | Status: 선명
+Time: 166.50s | Score: 335.94 | Status: 선명
+Time: 167.00s | Score: 427.70 | Status: 선명
+Time: 167.50s | Score: 384.88 | Status: 선명
+Time: 168.00s | Score: 562.44 | Status: 선명
+Time: 168.50s | Score: 610.41 | Status: 선명
+Time: 169.00s | Score: 537.78 | Status: 선명
+Time: 169.50s | Score: 191.52 | Status: 선명
+Time: 170.00s | Score: 184.99 | Status: 선명
+Time: 170.50s | Score: 184.88 | Status: 선명
+Time: 171.00s | Score: 186.27 | Status: 선명
+Time: 171.50s | Status: 얼굴 미검출
+Time: 172.00s | Score: 193.29 | Status: 선명
+Time: 172.50s | Score: 219.61 | Status: 선명
+Time: 173.00s | Status: 얼굴 미검출
+Time: 173.50s | Score: 164.50 | Status: 선명
+Time: 174.00s | Score: 190.21 | Status: 선명
+Time: 174.50s | Score: 156.59 | Status: 선명
+Time: 175.00s | Score: 123.81 | Status: 선명
+Time: 175.50s | Score: 171.44 | Status: 선명
+Time: 176.00s | Score: 277.51 | Status: 선명
+Time: 176.50s | Score: 577.29 | Status: 선명
+Time: 177.00s | Score: 393.81 | Status: 선명
+Time: 177.50s | Score: 134.12 | Status: 선명
+Time: 178.00s | Score: 142.04 | Status: 선명
+Time: 178.50s | Score: 144.13 | Status: 선명
+Time: 179.00s | Score: 133.22 | Status: 선명
+Time: 179.50s | Score: 176.68 | Status: 선명
+Time: 180.00s | Score: 143.26 | Status: 선명
+Time: 180.50s | Score: 149.04 | Status: 선명
+Time: 181.00s | Score: 168.26 | Status: 선명
+Time: 181.50s | Score: 160.02 | Status: 선명
+Time: 182.00s | Score: 159.62 | Status: 선명
+Time: 182.50s | Score: 161.29 | Status: 선명
+Time: 183.00s | Score: 166.13 | Status: 선명
+Time: 183.50s | Score: 150.76 | Status: 선명
+Time: 184.00s | Score: 161.20 | Status: 선명
+Time: 184.50s | Score: 348.06 | Status: 선명
+Time: 185.00s | Score: 141.55 | Status: 선명
+Time: 185.50s | Score: 146.69 | Status: 선명
+Time: 186.00s | Score: 139.05 | Status: 선명
+Time: 186.50s | Score: 313.54 | Status: 선명
+Time: 187.00s | Score: 318.52 | Status: 선명
+Time: 187.50s | Score: 313.32 | Status: 선명
+Time: 188.00s | Score: 341.37 | Status: 선명
+Time: 188.50s | Score: 149.77 | Status: 선명
+Time: 189.00s | Score: 130.21 | Status: 선명
+Time: 189.50s | Score: 136.96 | Status: 선명
+Time: 190.00s | Score: 144.10 | Status: 선명
+Time: 190.50s | Score: 113.80 | Status: 선명
+Time: 191.00s | Score: 289.67 | Status: 선명
+Time: 191.50s | Score: 137.06 | Status: 선명
+Time: 192.00s | Score: 158.57 | Status: 선명
+Time: 192.50s | Score: 112.49 | Status: 선명
+Time: 193.00s | Score: 118.12 | Status: 선명
+Time: 193.50s | Score: 156.78 | Status: 선명
+Time: 194.00s | Status: 얼굴 미검출
+Time: 194.50s | Score: 206.51 | Status: 선명
+Time: 195.00s | Score: 163.88 | Status: 선명
+Time: 195.50s | Score: 165.31 | Status: 선명
+Time: 196.00s | Score: 140.75 | Status: 선명
+Time: 196.50s | Score: 166.25 | Status: 선명
+Time: 197.00s | Score: 134.94 | Status: 선명
+Time: 197.50s | Score: 137.26 | Status: 선명
+Time: 198.00s | Score: 152.12 | Status: 선명
+Time: 198.50s | Score: 126.50 | Status: 선명
+Time: 199.00s | Score: 137.99 | Status: 선명
+Time: 199.50s | Score: 136.09 | Status: 선명
+Time: 200.00s | Score: 130.45 | Status: 선명
+Time: 200.50s | Score: 165.14 | Status: 선명
+Time: 201.00s | Score: 165.80 | Status: 선명
+Time: 201.50s | Score: 159.90 | Status: 선명
+Time: 202.00s | Score: 157.55 | Status: 선명
+Time: 202.50s | Score: 157.95 | Status: 선명
+Time: 203.00s | Score: 114.99 | Status: 선명
+Time: 203.50s | Status: 얼굴 미검출
+Time: 204.00s | Status: 얼굴 미검출
+Time: 204.50s | Status: 얼굴 미검출
+Time: 205.00s | Score: 124.79 | Status: 선명
+Time: 205.50s | Score: 112.25 | Status: 선명
+Time: 206.00s | Score: 118.55 | Status: 선명
+Time: 206.50s | Score: 134.40 | Status: 선명
+Time: 207.00s | Score: 132.43 | Status: 선명
+Time: 207.50s | Score: 157.41 | Status: 선명
+Time: 208.00s | Score: 150.99 | Status: 선명
+Time: 208.50s | Score: 167.33 | Status: 선명
+Time: 209.00s | Score: 165.34 | Status: 선명
+Time: 209.50s | Score: 154.18 | Status: 선명
+Time: 210.00s | Score: 159.23 | Status: 선명
+Time: 210.50s | Score: 125.59 | Status: 선명
+Time: 211.00s | Score: 124.08 | Status: 선명
+Time: 211.50s | Score: 148.24 | Status: 선명
+Time: 212.00s | Score: 163.95 | Status: 선명
+Time: 212.50s | Score: 168.09 | Status: 선명
+Time: 213.00s | Score: 108.78 | Status: 선명
+Time: 213.50s | Status: 얼굴 미검출
+Time: 214.00s | Status: 얼굴 미검출
+Time: 214.50s | Status: 얼굴 미검출
+Time: 215.00s | Status: 얼굴 미검출
+Time: 215.50s | Score: 48.86 | Status: 흐림
+Time: 216.00s | Score: 189.12 | Status: 선명
+Time: 216.50s | Score: 59.00 | Status: 선명
+Time: 217.00s | Score: 42.79 | Status: 흐림
+Time: 217.50s | Score: 170.11 | Status: 선명
+Time: 218.00s | Score: 204.42 | Status: 선명
+Time: 218.50s | Score: 252.37 | Status: 선명
+Time: 219.00s | Score: 244.39 | Status: 선명
+Time: 219.50s | Score: 207.03 | Status: 선명
+Time: 220.00s | Score: 221.94 | Status: 선명
+Time: 220.50s | Score: 192.41 | Status: 선명
+Time: 221.00s | Score: 143.09 | Status: 선명
+Time: 221.50s | Score: 103.66 | Status: 선명
+Time: 222.00s | Score: 96.69 | Status: 선명
+Time: 222.50s | Score: 85.43 | Status: 선명
+Time: 223.00s | Score: 265.91 | Status: 선명
+Time: 223.50s | Score: 392.99 | Status: 선명
+Time: 224.00s | Score: 301.50 | Status: 선명
+Time: 224.50s | Score: 338.30 | Status: 선명
+Time: 225.00s | Score: 346.31 | Status: 선명
+Time: 225.50s | Score: 379.32 | Status: 선명
+Time: 226.00s | Score: 368.13 | Status: 선명
+Time: 226.50s | Score: 450.71 | Status: 선명
+Time: 227.00s | Score: 382.09 | Status: 선명
+Time: 227.50s | Status: 얼굴 미검출
+Time: 228.00s | Status: 얼굴 미검출
+Time: 228.50s | Score: 432.65 | Status: 선명
+Time: 229.00s | Score: 363.70 | Status: 선명
+Time: 229.50s | Score: 399.31 | Status: 선명
+Time: 230.00s | Score: 236.69 | Status: 선명
+Time: 230.50s | Score: 288.83 | Status: 선명
+Time: 231.00s | Score: 258.98 | Status: 선명
+Time: 231.50s | Score: 254.15 | Status: 선명
+Time: 232.00s | Score: 475.85 | Status: 선명
+Time: 232.50s | Score: 328.71 | Status: 선명
+Time: 233.00s | Score: 15.26 | Status: 흐림
+Time: 233.50s | Score: 210.15 | Status: 선명
+Time: 234.00s | Status: 얼굴 미검출
+Time: 234.50s | Status: 얼굴 미검출
+Time: 235.00s | Status: 얼굴 미검출
+Time: 235.50s | Score: 14.21 | Status: 흐림
+Time: 236.00s | Status: 얼굴 미검출
+Time: 236.50s | Status: 얼굴 미검출
+Time: 237.00s | Status: 얼굴 미검출
+Time: 237.50s | Status: 얼굴 미검출
+Time: 238.00s | Status: 얼굴 미검출
+Time: 238.50s | Score: 317.69 | Status: 선명
+Time: 239.00s | Status: 얼굴 미검출
+Time: 239.50s | Status: 얼굴 미검출
+Time: 240.00s | Status: 얼굴 미검출
+Time: 240.50s | Score: 132.48 | Status: 선명
+Time: 241.00s | Score: 135.96 | Status: 선명
+Time: 241.50s | Score: 127.49 | Status: 선명
+Time: 242.00s | Score: 134.25 | Status: 선명
+Time: 242.50s | Score: 135.56 | Status: 선명
+Time: 243.00s | Score: 137.36 | Status: 선명
+Time: 243.50s | Score: 131.77 | Status: 선명
+Time: 244.00s | Score: 362.02 | Status: 선명
+Time: 244.50s | Score: 304.61 | Status: 선명
+Time: 245.00s | Score: 371.54 | Status: 선명
+Time: 245.50s | Status: 얼굴 미검출
+Time: 246.00s | Score: 124.86 | Status: 선명
+Time: 246.50s | Score: 12.38 | Status: 흐림
+Time: 247.00s | Score: 169.58 | Status: 선명
+Time: 247.50s | Score: 164.05 | Status: 선명
+Time: 248.00s | Status: 얼굴 미검출
+Time: 248.50s | Score: 14.36 | Status: 흐림
+Time: 249.00s | Score: 15.21 | Status: 흐림
+Time: 249.50s | Status: 얼굴 미검출
+Time: 250.00s | Score: 290.60 | Status: 선명
+Time: 250.50s | Score: 248.73 | Status: 선명
+Time: 251.00s | Score: 215.75 | Status: 선명
+Time: 251.50s | Score: 146.08 | Status: 선명
+Time: 252.00s | Score: 203.48 | Status: 선명
+Time: 252.50s | Status: 얼굴 미검출
+Time: 253.00s | Score: 222.44 | Status: 선명
+Time: 253.50s | Status: 얼굴 미검출
+Time: 254.00s | Status: 얼굴 미검출
+Time: 254.50s | Status: 얼굴 미검출
+Time: 255.00s | Score: 584.15 | Status: 선명
+Time: 255.50s | Score: 602.57 | Status: 선명
+Time: 256.00s | Status: 얼굴 미검출
+Time: 256.50s | Status: 얼굴 미검출
+Time: 257.00s | Score: 419.66 | Status: 선명
+Time: 257.50s | Score: 316.36 | Status: 선명
+Time: 258.00s | Score: 406.99 | Status: 선명
+Time: 258.50s | Score: 230.52 | Status: 선명
+Time: 259.00s | Score: 595.64 | Status: 선명
+Time: 259.50s | Score: 46.35 | Status: 흐림
+Time: 260.00s | Score: 14.89 | Status: 흐림
+Time: 260.50s | Status: 얼굴 미검출
+Time: 261.00s | Status: 얼굴 미검출
+Time: 261.50s | Status: 얼굴 미검출
+Time: 262.00s | Status: 얼굴 미검출
+Time: 262.50s | Score: 200.29 | Status: 선명
+Time: 263.00s | Score: 171.74 | Status: 선명
+Time: 263.50s | Score: 158.75 | Status: 선명
+Time: 264.00s | Score: 57.50 | Status: 선명
+Time: 264.50s | Score: 11.98 | Status: 흐림
+Time: 265.00s | Score: 27.72 | Status: 흐림
+Time: 265.50s | Score: 118.83 | Status: 선명
+Time: 266.00s | Score: 167.06 | Status: 선명
+Time: 266.50s | Score: 142.10 | Status: 선명
+Time: 267.00s | Score: 150.74 | Status: 선명
+Time: 267.50s | Score: 131.70 | Status: 선명
+Time: 268.00s | Score: 180.49 | Status: 선명
+Time: 268.50s | Score: 163.39 | Status: 선명
+Time: 269.00s | Score: 65.94 | Status: 선명
+Time: 269.50s | Score: 134.98 | Status: 선명
+Time: 270.00s | Score: 236.41 | Status: 선명
+Time: 270.50s | Score: 275.32 | Status: 선명
+Time: 271.00s | Score: 146.23 | Status: 선명
+Time: 271.50s | Score: 256.44 | Status: 선명
+Time: 272.00s | Score: 301.21 | Status: 선명
+Time: 272.50s | Score: 143.75 | Status: 선명
+Time: 273.00s | Score: 102.46 | Status: 선명
+Time: 273.50s | Score: 134.79 | Status: 선명
+Time: 274.00s | Score: 127.32 | Status: 선명
+Time: 274.50s | Score: 134.41 | Status: 선명
+Time: 275.00s | Score: 131.73 | Status: 선명
+Time: 275.50s | Score: 102.06 | Status: 선명
+Time: 276.00s | Score: 184.03 | Status: 선명
+Time: 276.50s | Score: 118.52 | Status: 선명
+Time: 277.00s | Score: 152.94 | Status: 선명
+Time: 277.50s | Score: 118.82 | Status: 선명
+Time: 278.00s | Score: 119.01 | Status: 선명
+Time: 278.50s | Score: 107.50 | Status: 선명
+Time: 279.00s | Score: 142.49 | Status: 선명
+Time: 279.50s | Score: 117.88 | Status: 선명
+Time: 280.00s | Score: 139.94 | Status: 선명
+Time: 280.50s | Score: 158.35 | Status: 선명
+Time: 281.00s | Score: 142.83 | Status: 선명
+Time: 281.50s | Score: 141.29 | Status: 선명
+Time: 282.00s | Score: 152.84 | Status: 선명
+Time: 282.50s | Score: 99.02 | Status: 선명
+Time: 283.00s | Score: 152.51 | Status: 선명
+Time: 283.50s | Score: 164.00 | Status: 선명
+Time: 284.00s | Score: 30.07 | Status: 흐림
+Time: 284.50s | Status: 얼굴 미검출
+Time: 285.00s | Status: 얼굴 미검출
+Time: 285.50s | Status: 얼굴 미검출
+Time: 286.00s | Status: 얼굴 미검출
+Time: 286.50s | Status: 얼굴 미검출
+Time: 287.00s | Status: 얼굴 미검출
+Time: 287.50s | Status: 얼굴 미검출
+Time: 288.00s | Status: 얼굴 미검출
+Time: 288.50s | Status: 얼굴 미검출
+Time: 289.00s | Status: 얼굴 미검출
+Time: 289.50s | Status: 얼굴 미검출
+Time: 290.00s | Status: 얼굴 미검출
+Time: 290.50s | Status: 얼굴 미검출
+Time: 291.00s | Status: 얼굴 미검출
+Time: 291.50s | Status: 얼굴 미검출
+Time: 292.00s | Status: 얼굴 미검출
+Time: 292.50s | Status: 얼굴 미검출
+Time: 293.00s | Status: 얼굴 미검출
+Time: 293.50s | Status: 얼굴 미검출
+Time: 294.00s | Status: 얼굴 미검출
+Time: 294.50s | Status: 얼굴 미검출
+Time: 295.00s | Status: 얼굴 미검출
+Time: 295.50s | Status: 얼굴 미검출
+Time: 296.00s | Status: 얼굴 미검출
+Time: 296.50s | Status: 얼굴 미검출
+Time: 297.00s | Status: 얼굴 미검출
+Time: 297.50s | Score: 336.31 | Status: 선명
+Time: 298.00s | Score: 86.82 | Status: 선명
+Time: 298.50s | Score: 51.64 | Status: 선명
+Time: 299.00s | Status: 얼굴 미검출
+Time: 299.50s | Status: 얼굴 미검출
+Time: 300.00s | Status: 얼굴 미검출
+Time: 300.50s | Status: 얼굴 미검출
+Time: 301.00s | Status: 얼굴 미검출
+Time: 301.50s | Status: 얼굴 미검출
+Time: 302.00s | Status: 얼굴 미검출
+Time: 302.50s | Status: 얼굴 미검출
+Time: 303.00s | Status: 얼굴 미검출
+Time: 303.50s | Status: 얼굴 미검출
+Time: 304.00s | Status: 얼굴 미검출
+Time: 304.50s | Status: 얼굴 미검출
+Time: 305.00s | Status: 얼굴 미검출
+Time: 305.50s | Status: 얼굴 미검출
+Time: 306.00s | Status: 얼굴 미검출
+Time: 306.50s | Status: 얼굴 미검출
+Time: 307.00s | Status: 얼굴 미검출
+Time: 307.50s | Status: 얼굴 미검출
+Time: 308.00s | Status: 얼굴 미검출
+Time: 308.50s | Status: 얼굴 미검출
+Time: 309.00s | Status: 얼굴 미검출
+Time: 309.50s | Status: 얼굴 미검출
+Time: 310.00s | Status: 얼굴 미검출
+Time: 310.50s | Status: 얼굴 미검출
+Time: 311.00s | Status: 얼굴 미검출
+Time: 311.50s | Status: 얼굴 미검출
+Time: 312.00s | Status: 얼굴 미검출
+Time: 312.50s | Status: 얼굴 미검출
+Time: 313.00s | Status: 얼굴 미검출
+Time: 313.50s | Status: 얼굴 미검출
+Time: 314.00s | Status: 얼굴 미검출
+Time: 314.50s | Status: 얼굴 미검출
