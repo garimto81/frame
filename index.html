@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>포커스 이슈 탐지기 - Ver 0.24</title>
+    <title>포커스 이슈 탐지기 - Ver 0.26</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -145,7 +145,7 @@
     <!-- Chart Tooltip -->
     <div id="chart-tooltip" class="hidden"></div>
     <script>
-        const APP_VERSION = "0.24";
+        const APP_VERSION = "0.26";
         document.title = `포커스 이슈 탐지기 - Ver ${APP_VERSION}`;
         document.getElementById('version-display').textContent = `Ver ${APP_VERSION}`;
         
@@ -179,14 +179,13 @@
         let detailChart = null;
         let currentPage = 1;
         const ITEMS_PER_PAGE = 20;
-        const CHUNK_SIZE_LIMIT = 800 * 1024; // 800 KB
 
         // --- GitHub API State ---
         const GITHUB_CONFIG = {
             owner: 'garimto81', repo: 'frame', token: '#{GITHUB_TOKEN_PLACEHOLDER}#',
-            indexPath: 'data/index.json',
-            legacyResultsPath: 'data/results.json',
-            resultsChunksPath: 'data/results/'
+            mainDataPath: 'data/main.json',
+            pendingPath: 'data/pending/',
+            assetsPath: 'data/assets/'
         };
 
         const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/`;
@@ -282,40 +281,41 @@
             resultsListPlaceholder.textContent = 'GitHub에서 분석 기록을 확인합니다...';
             appendLog('DB: 데이터 로딩 시도...', 'text-cyan-400');
             try {
-                let indexFile = await getFileFromGitHub(GITHUB_CONFIG.indexPath);
-
-                if (indexFile === null) {
-                    const legacyFile = await getFileFromGitHub(GITHUB_CONFIG.legacyResultsPath);
-                    if (legacyFile) {
-                        await migrateLegacyData(legacyFile);
-                        indexFile = await getFileFromGitHub(GITHUB_CONFIG.indexPath);
-                    }
+                let mainDataFile = await getFileFromGitHub(GITHUB_CONFIG.mainDataPath);
+                
+                if (mainDataFile === 'error') {
+                    appendLog('DB: 1. GitHub API 호출 실패.', 'text-red-500');
+                    throw new Error('GitHub 저장소 접근 실패');
                 }
+                appendLog('DB: 1. GitHub API 호출 성공.', 'text-green-500');
 
-                if (indexFile === null) {
-                    appendLog('DB: index.json 파일 없음. 새로 생성합니다...', 'text-yellow-400');
-                    await createOrUpdateFileOnGitHub(GITHUB_CONFIG.indexPath, '[]', null, 'Initialize index.json');
+                if (mainDataFile === null) {
+                    appendLog('DB: 2. main.json 파일 없음. 새로 생성합니다...', 'text-yellow-400');
+                    await createOrUpdateFileOnGitHub(GITHUB_CONFIG.mainDataPath, '{}', null, 'Initialize main.json');
+                    appendLog('DB: 3. main.json 파일 생성 완료.', 'text-green-500');
                     allAnalysisData = {};
                 } else {
-                    appendLog('DB: index.json 파일 발견됨.', 'text-green-500');
-                    const chunkList = JSON.parse(decodeURIComponent(escape(atob(indexFile.content))));
-                    appendLog(`DB: ${chunkList.length}개의 데이터 청크 발견. 로딩 시작...`, 'text-cyan-400');
-                    
-                    const chunkPromises = chunkList.map(chunkName => 
-                        getFileFromGitHub(`${GITHUB_CONFIG.resultsChunksPath}${chunkName}`)
-                    );
-                    
-                    const allChunks = await Promise.all(chunkPromises);
-                    allAnalysisData = {};
-
-                    for (const chunkFile of allChunks) {
-                         if (chunkFile && chunkFile.content) {
-                            const content = decodeURIComponent(escape(atob(chunkFile.content)));
-                            const chunkData = JSON.parse(content);
-                            Object.assign(allAnalysisData, chunkData);
-                        }
+                    appendLog('DB: 2. main.json 파일 발견됨.', 'text-green-500');
+                    let content;
+                    if (mainDataFile.content) {
+                        content = decodeURIComponent(escape(atob(mainDataFile.content)));
+                    } else if (mainDataFile.download_url) {
+                        appendLog('DB: 3a. 파일 내용 없음 (대용량 추정). download_url에서 직접 가져옵니다...', 'text-yellow-400');
+                        const dlResponse = await fetch(mainDataFile.download_url);
+                        if (!dlResponse.ok) throw new Error('download_url에서 파일 다운로드 실패');
+                        content = await dlResponse.text();
+                    } else {
+                        throw new Error("파일 내용은 없으나 download_url도 찾을 수 없음");
                     }
-                     appendLog(`DB: 데이터 로딩 완료. 총 ${Object.keys(allAnalysisData).length}개의 기록 발견됨.`, 'text-green-500');
+                    
+                    try {
+                        allAnalysisData = JSON.parse(content);
+                        appendLog(`DB: 4. 데이터 파싱 및 처리 성공. ${Object.keys(allAnalysisData).length}개의 기록 발견됨.`, 'text-green-500');
+                    } catch (parseError) {
+                        appendLog('DB: 4. 데이터 파싱 실패! 파일이 손상되었을 수 있습니다.', 'text-red-500');
+                        console.error("JSON Parse Error:", parseError);
+                        allAnalysisData = {};
+                    }
                 }
                 renderAnalysisResultsList();
 
@@ -324,53 +324,6 @@
                 console.error("Failed to initialize or load data:", e);
                 resultsListPlaceholder.textContent = `데이터 로딩 오류: ${e.message}`;
             }
-        }
-
-        async function migrateLegacyData(legacyFile) {
-            appendLog('[DB_MIGRATE] 구버전 results.json 발견. 데이터 마이그레이션을 시작합니다...', 'text-yellow-400');
-            let legacyContent;
-            if (legacyFile.content) {
-                legacyContent = decodeURIComponent(escape(atob(legacyFile.content)));
-            } else if (legacyFile.download_url) {
-                const response = await fetch(legacyFile.download_url);
-                legacyContent = await response.text();
-            } else {
-                 appendLog('[DB_MIGRATE] 구버전 파일 내용을 읽을 수 없습니다. 마이그레이션 중단.', 'text-red-500');
-                 return;
-            }
-
-            const dataToMigrate = JSON.parse(legacyContent);
-            const dataAsObject = Array.isArray(dataToMigrate) ? migrateV1Data(dataToMigrate) : dataToMigrate;
-            const allEntries = Object.entries(dataAsObject);
-            
-            let currentChunk = {};
-            let currentChunkSize = 0;
-            let chunkIndex = 1;
-            const newChunkNames = [];
-
-            for (const [key, value] of allEntries) {
-                const entryString = JSON.stringify({ [key]: value });
-                if (currentChunkSize + entryString.length > CHUNK_SIZE_LIMIT && Object.keys(currentChunk).length > 0) {
-                    const chunkName = `results_${chunkIndex++}.json`;
-                    await createOrUpdateFileOnGitHub(`${GITHUB_CONFIG.resultsChunksPath}${chunkName}`, JSON.stringify(currentChunk, null, 2), null, `Migrate data chunk ${chunkIndex - 1}`);
-                    newChunkNames.push(chunkName);
-                    appendLog(`[DB_MIGRATE] 청크 ${chunkIndex - 1} 저장 완료.`, 'text-green-500');
-                    currentChunk = {};
-                    currentChunkSize = 0;
-                }
-                currentChunk[key] = value;
-                currentChunkSize += entryString.length;
-            }
-
-            if (Object.keys(currentChunk).length > 0) {
-                 const chunkName = `results_${chunkIndex}.json`;
-                 await createOrUpdateFileOnGitHub(`${GITHUB_CONFIG.resultsChunksPath}${chunkName}`, JSON.stringify(currentChunk, null, 2), null, `Migrate data chunk ${chunkIndex}`);
-                 newChunkNames.push(chunkName);
-                 appendLog(`[DB_MIGRATE] 마지막 청크 ${chunkIndex} 저장 완료.`, 'text-green-500');
-            }
-
-            await createOrUpdateFileOnGitHub(GITHUB_CONFIG.indexPath, JSON.stringify(newChunkNames, null, 2), null, 'Create index.json from migration');
-            appendLog('[DB_MIGRATE] 새로운 index.json 생성 완료. 마이그레이션이 끝났습니다.', 'text-green-500');
         }
 
         // --- Core Logic & UI ---
@@ -492,13 +445,21 @@
             renderKeyFramesForDetail(resultData);
 
             try {
-                const logFile = await getFileFromGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/log.txt`);
-                 if (logFile && logFile.content) {
-                    const logContent = decodeURIComponent(escape(atob(logFile.content)));
+                const logFileResponse = await getFileFromGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/log.txt`);
+                let logContent = '';
+                if (logFileResponse && logFileResponse.content) {
+                    logContent = decodeURIComponent(escape(atob(logFileResponse.content)));
+                } else if (logFileResponse && logFileResponse.download_url) {
+                    const dlResponse = await fetch(logFileResponse.download_url);
+                    if (!dlResponse.ok) throw new Error('Log file download failed');
+                    logContent = await dlResponse.text();
+                }
+
+                 if (logContent) {
                     logContainer.innerHTML = '';
                     logContent.split('\n').forEach(line => {
                         const logEntry = document.createElement('div');
-                        const logText = line.startsWith(`[Ver ${APP_VERSION}]`) ? line : `[Ver ${APP_VERSION}] ${line}`;
+                        const logText = line.startsWith(`[Ver`) ? line : `[Ver ${APP_VERSION}] ${line}`;
                         logEntry.textContent = logText;
                         if(line.includes('흐림') || line.includes('문제')) logEntry.className = 'text-red-500';
                         else if(line.includes('선명')) logEntry.className = 'text-green-500';
@@ -510,7 +471,8 @@
                      logContainer.innerHTML = '<p class="text-gray-400 text-center py-4">저장된 로그 파일을 찾을 수 없습니다.</p>';
                 }
             } catch(e) {
-                logContainer.innerHTML = '<p class="text-gray-400 text-center py-4">저장된 로그 파일을 찾을 수 없습니다.</p>';
+                console.error("Failed to render log file:", e);
+                logContainer.innerHTML = `<p class="text-gray-400 text-center py-4">로그 파일 로딩 중 오류 발생: ${e.message}</p>`;
             }
         }
         
@@ -612,25 +574,31 @@
 
             if (action === 'ok') {
                 keyFrame.manualOverride = 'ok';
-            } else { // action === 'problem'
+            } else { 
                 delete keyFrame.manualOverride;
             }
 
             renderDetailedView(analysisId);
 
             try {
-                // This is a simplified update. A real implementation would update only the relevant chunk.
                 const indexFile = await getFileFromGitHub(GITHUB_CONFIG.indexPath);
                 const chunkList = JSON.parse(decodeURIComponent(escape(atob(indexFile.content))));
-                const latestChunkName = chunkList[chunkList.length - 1];
+                let targetChunkName = null;
+                // This is a simplified logic. For real production, you need a map to know which analysisId is in which chunk.
+                // For now, we assume it's in the latest chunk.
+                targetChunkName = chunkList[chunkList.length-1];
 
-                const chunkFile = await getFileFromGitHub(`${GITHUB_CONFIG.resultsChunksPath}${latestChunkName}`);
+                const chunkFile = await getFileFromGitHub(`${GITHUB_CONFIG.resultsChunksPath}${targetChunkName}`);
+                if (!chunkFile) throw new Error(`Chunk file ${targetChunkName} not found.`);
+                
                 const chunkData = JSON.parse(decodeURIComponent(escape(atob(chunkFile.content))));
                 
-                Object.assign(chunkData, allAnalysisData); // This is inefficient but works for now.
+                if (chunkData[analysisId]) {
+                    chunkData[analysisId] = allAnalysisData[analysisId];
+                }
                 
                 await createOrUpdateFileOnGitHub(
-                    `${GITHUB_CONFIG.resultsChunksPath}${latestChunkName}`, 
+                    `${GITHUB_CONFIG.resultsChunksPath}${targetChunkName}`, 
                     JSON.stringify(chunkData, null, 2), 
                     chunkFile.sha, 
                     `Update manual override in ${analysisId}`
@@ -744,27 +712,22 @@
                 const blurryFrameCount = frameScores.filter(f => f.score < threshold).length;
                 const blurryPercentage = detectedFrameCount > 0 ? (blurryFrameCount / detectedFrameCount) * 100 : 0;
                 
-                const assetUploadPromises = [];
-                assetUploadPromises.push(uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/log.txt`, liveLogContent, false));
+                const uploadPromises = [];
+                uploadPromises.push(uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}${analysisId}/log.txt`, liveLogContent, false));
                 
-                const uploadedKeyFrames = [];
                 for(const kf of keyFramesToUpload) {
                     const cleanFileName = file.name.split('.').slice(0, -1).join('');
-                    const sharpFileName = `${cleanFileName}_${kf.time.toFixed(2)}s_sharp.jpeg`;
-                    const blurryFileName = `${cleanFileName}_${kf.time.toFixed(2)}s_blurry.jpeg`;
-                    const sharpCroppedFileName = `${cleanFileName}_${kf.time.toFixed(2)}s_sharp_crop.jpeg`;
-                    const blurryCroppedFileName = `${cleanFileName}_${kf.time.toFixed(2)}s_blurry_crop.jpeg`;
-
-                    assetUploadPromises.push(
-                        uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${sharpFileName}`, kf.sharpFrameUrl, true),
-                        uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${blurryFileName}`, kf.blurryFrameUrl, true)
+                    uploadPromises.push(
+                        uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${cleanFileName}_${kf.time.toFixed(2)}s_sharp.jpeg`, kf.sharpFrameUrl, true),
+                        uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${cleanFileName}_${kf.time.toFixed(2)}s_blurry.jpeg`, kf.blurryFrameUrl, true)
                     );
-                    if (kf.sharpCroppedUrl) assetUploadPromises.push(uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${sharpCroppedFileName}`, kf.sharpCroppedUrl, true));
-                    if (kf.blurryCroppedUrl) assetUploadPromises.push(uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${blurryCroppedFileName}`, kf.blurryCroppedUrl, true));
+                    if (kf.sharpCroppedUrl) uploadPromises.push(uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${cleanFileName}_${kf.time.toFixed(2)}s_sharp_crop.jpeg`, kf.sharpCroppedUrl, true));
+                    if (kf.blurryCroppedUrl) uploadPromises.push(uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${cleanFileName}_${kf.time.toFixed(2)}s_blurry_crop.jpeg`, kf.blurryCroppedUrl, true));
                 }
 
-                const assetUrls = await Promise.all(assetUploadPromises);
+                const assetUrls = await Promise.all(uploadPromises);
                 
+                const uploadedKeyFrames = [];
                 let urlIndex = 1; 
                 for(const kf of keyFramesToUpload) {
                     const sharpUrl = assetUrls[urlIndex++];
@@ -781,62 +744,33 @@
                 }
 
                 
-                allAnalysisData[analysisId] = {
-                    analysisId, timestamp: new Date().toISOString(), fileName: file.name,
-                    avgScore: detectedFrameCount > 0 ? totalScore / detectedFrameCount : 0,
-                    problematic: keyFramesToUpload.length > 0, blurryPercentage, frameScores, 
-                    keyFrames: uploadedKeyFrames
+                const newAnalysisData = {
+                    [analysisId]: {
+                        analysisId, timestamp: new Date().toISOString(), fileName: file.name,
+                        avgScore: detectedFrameCount > 0 ? totalScore / detectedFrameCount : 0,
+                        problematic: keyFramesToUpload.length > 0, blurryPercentage, frameScores, 
+                        keyFrames: uploadedKeyFrames
+                    }
                 };
+                 await createOrUpdateFileOnGitHub(
+                    `${GITHUB_CONFIG.pendingPath}${analysisId}.json`,
+                    JSON.stringify(newAnalysisData, null, 2),
+                    null,
+                    `Add pending analysis: ${analysisId}`
+                );
                 
                 URL.revokeObjectURL(fileURL);
-                appendLog(`> [END] '${file.name}' 분석 완료.`);
+                appendLog(`> [END] '${file.name}' 분석 완료. 결과가 처리 대기열에 추가되었습니다.`, 'text-green-500');
             }
             
-            const saveStartTime = performance.now();
-            appendLog('[SAVE_TRACE] 1. 최종 결과를 GitHub에 저장 시작...', 'text-yellow-400');
-            
-            const indexFile = await getFileFromGitHub(GITHUB_CONFIG.indexPath);
-            const chunkList = JSON.parse(decodeURIComponent(escape(atob(indexFile.content))));
-            const latestChunkName = chunkList.length > 0 ? chunkList[chunkList.length - 1] : "results_1.json";
-
-            const chunkFile = await getFileFromGitHub(`${GITHUB_CONFIG.resultsChunksPath}${latestChunkName}`);
-            let chunkData = {};
-            let sha = null;
-            if (chunkFile) {
-                chunkData = JSON.parse(decodeURIComponent(escape(atob(chunkFile.content))));
-                sha = chunkFile.sha;
-            }
-            
-            Object.assign(chunkData, allAnalysisData);
-
-            const newContentString = JSON.stringify(chunkData, null, 2);
-            if (new Blob([newContentString]).size > CHUNK_SIZE_LIMIT && chunkList.length > 0) {
-                 appendLog('[SAVE_TRACE] 청크 파일 용량 초과. 새 파일을 생성합니다.', 'text-yellow-400');
-                 const newChunkIndex = chunkList.length + 1;
-                 const newChunkName = `results_${newChunkIndex}.json`;
-                 
-                 await createOrUpdateFileOnGitHub(`${GITHUB_CONFIG.resultsChunksPath}${newChunkName}`, JSON.stringify(allAnalysisData, null, 2), null, `Create new data chunk ${newChunkIndex}`);
-                 
-                 chunkList.push(newChunkName);
-                 await createOrUpdateFileOnGitHub(GITHUB_CONFIG.indexPath, JSON.stringify(chunkList, null, 2), indexFile.sha, `Add new chunk ${newChunkName}`);
-
-            } else {
-                 await createOrUpdateFileOnGitHub(
-                    `${GITHUB_CONFIG.resultsChunksPath}${latestChunkName}`,
-                    newContentString,
-                    sha,
-                    `Add analysis for ${videoFiles.length} file(s)`
-                );
-            }
-            const saveEndTime = performance.now();
-            appendLog(`[SAVE_TRACE] 3. 최종 저장 완료. (총 소요 시간: ${(saveEndTime - saveStartTime) / 1000}초)`, 'text-green-500');
+            appendLog('모든 분석이 대기열에 추가되었습니다. GitHub Actions가 곧 데이터를 처리할 것입니다.', 'text-cyan-400');
 
             loadingIndicator.style.display = 'none';
             analyzeButton.disabled = false;
             videoFiles = [];
             videoFilesInput.value = '';
             updateAnalyzeButtonState();
-            await initializeAndLoadGitHubData();
+            // No need to reload data here, the action will update it.
         });
 
         function setupModal() {
