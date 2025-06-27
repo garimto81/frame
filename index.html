@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>포커스 이슈 탐지기 - Ver 0.21</title>
+    <title>포커스 이슈 탐지기 - Ver 0.22</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -109,30 +109,34 @@
                 <h3 class="text-xl font-bold">작동 방식</h3>
                 <button id="close-modal-button" class="text-gray-400 hover:text-gray-700 text-3xl leading-none">&times;</button>
             </div>
-            <div class="p-6 space-y-4 overflow-y-auto">
+            <div class="p-6 space-y-6 overflow-y-auto">
                 <div>
                     <h4 class="font-bold text-lg mb-2">1. 영상 분석 및 설정</h4>
                     <p class="text-gray-700 text-sm leading-relaxed">
                         사용자는 분석할 영상 파일(.mp4, .mov)을 선택합니다. '흐림 기준값'을 조절하여 선명도 판단의 민감도를 설정할 수 있습니다. (값이 낮을수록 사소한 흐림도 문제로 감지합니다.) '분석 시작'을 누르면 분석이 시작되며, 브라우저가 잠시 멈출 수 있습니다.
                     </p>
+                    <img src="https://placehold.co/600x200/e2e8f0/4a5568?text=1.+%ED%8C%8C%EC%9D%BC+%EC%84%A0%ED%83%9D+%26+%EC%84%A4%EC%A0%95+UI" alt="파일 선택 및 설정 UI 예시" class="mt-2 rounded-md border">
                 </div>
                 <div>
                     <h4 class="font-bold text-lg mb-2">2. 얼굴 탐지 및 선명도 측정</h4>
                     <p class="text-gray-700 text-sm leading-relaxed">
                         영상에서 0.5초 간격으로 프레임을 추출하여 <strong>face-api.js</strong>로 얼굴을 탐지합니다. 신뢰도가 50% 이상인 얼굴만 대상으로 하며, 여러 얼굴이 있다면 영상 중앙에 가장 가까운 얼굴을 기준으로 삼습니다. 탐지된 얼굴 영역에 '라플라시안 분산' 알고리즘을 적용하여 선명도 점수를 계산합니다.
                     </p>
+                     <img src="https://placehold.co/600x200/e2e8f0/4a5568?text=2.+%EC%96%BC%EA%B5%B4+%ED%83%90%EC%A7%80+%26+%EC%84%A0%EB%AA%85%EB%8F%84+%EC%B8%A1%EC%A0%95" alt="얼굴 탐지 및 선명도 측정 예시" class="mt-2 rounded-md border">
                 </div>
                 <div>
                     <h4 class="font-bold text-lg mb-2">3. 문제 프레임 감지 및 저장</h4>
                     <p class="text-gray-700 text-sm leading-relaxed">
                         이전 프레임의 상태가 '선명' 또는 '미검출'이었는데 현재 프레임에서 '흐림' 상태의 얼굴이 감지되면 '문제 프레임'으로 판단합니다. 이 때, 이전 프레임과 현재 문제 프레임을 한 쌍으로 캡처하여 GitHub 저장소에 안전하게 업로드합니다.
                     </p>
+                     <img src="https://placehold.co/600x200/e2e8f0/4a5568?text=3.+%EB%AC%B8%EC%A0%9C+%ED%94%84%EB%A0%88%EC%9E%84+%EC%BA%A1%EC%B2%98" alt="문제 프레임 감지 예시" class="mt-2 rounded-md border">
                 </div>
                 <div>
                     <h4 class="font-bold text-lg mb-2">4. 결과 확인 및 수동 보정</h4>
                     <p class="text-gray-700 text-sm leading-relaxed">
                         분석 기록을 클릭하면 상세 그래프, 주요 프레임, 전체 로그를 확인할 수 있습니다. 시스템이 잘못 판단한 경우, 버튼을 클릭하여 '문제 없음'으로 상태를 변경하거나 다시 '문제 프레임'으로 되돌릴 수 있습니다.
                     </p>
+                    <img src="https://placehold.co/600x200/e2e8f0/4a5568?text=4.+%EA%B2%B0%EA%B3%BC+%ED%99%95%EC%9D%B8+%26+%EB%B3%B4%EC%A0%95" alt="결과 확인 및 보정 UI 예시" class="mt-2 rounded-md border">
                 </div>
             </div>
         </div>
@@ -141,7 +145,7 @@
     <!-- Chart Tooltip -->
     <div id="chart-tooltip" class="hidden"></div>
     <script>
-        const APP_VERSION = "0.21";
+        const APP_VERSION = "0.22";
         document.title = `포커스 이슈 탐지기 - Ver ${APP_VERSION}`;
         document.getElementById('version-display').textContent = `Ver ${APP_VERSION}`;
         
@@ -280,12 +284,10 @@
             try {
                 let indexFile = await getFileFromGitHub(GITHUB_CONFIG.indexPath);
 
-                // Migration logic for old data format
                 if (indexFile === null) {
                     const legacyFile = await getFileFromGitHub(GITHUB_CONFIG.legacyResultsPath);
                     if (legacyFile) {
                         await migrateLegacyData(legacyFile);
-                        // Re-fetch index file after migration
                         indexFile = await getFileFromGitHub(GITHUB_CONFIG.indexPath);
                     }
                 }
@@ -349,7 +351,6 @@
             for (const [key, value] of allEntries) {
                 const entryString = JSON.stringify({ [key]: value });
                 if (currentChunkSize + entryString.length > CHUNK_SIZE_LIMIT && Object.keys(currentChunk).length > 0) {
-                    // Save current chunk
                     const chunkName = `results_${chunkIndex++}.json`;
                     await createOrUpdateFileOnGitHub(`${GITHUB_CONFIG.resultsChunksPath}${chunkName}`, JSON.stringify(currentChunk, null, 2), null, `Migrate data chunk ${chunkIndex - 1}`);
                     newChunkNames.push(chunkName);
@@ -361,7 +362,6 @@
                 currentChunkSize += entryString.length;
             }
 
-            // Save the last chunk
             if (Object.keys(currentChunk).length > 0) {
                  const chunkName = `results_${chunkIndex}.json`;
                  await createOrUpdateFileOnGitHub(`${GITHUB_CONFIG.resultsChunksPath}${chunkName}`, JSON.stringify(currentChunk, null, 2), null, `Migrate data chunk ${chunkIndex}`);
@@ -369,7 +369,6 @@
                  appendLog(`[DB_MIGRATE] 마지막 청크 ${chunkIndex} 저장 완료.`, 'text-green-500');
             }
 
-            // Create the new index file
             await createOrUpdateFileOnGitHub(GITHUB_CONFIG.indexPath, JSON.stringify(newChunkNames, null, 2), null, 'Create index.json from migration');
             appendLog('[DB_MIGRATE] 새로운 index.json 생성 완료. 마이그레이션이 끝났습니다.', 'text-green-500');
         }
@@ -527,40 +526,42 @@
 
             resultData.keyFrames.forEach(data => {
                 const isOverridden = data.manualOverride === 'ok';
-                const sharpDimsText = (data.sharpDims && data.sharpDims.w) ? `${Math.round(data.sharpDims.w)}x${Math.round(data.sharpDims.h)}` : 'N/A';
-                const blurryDimsText = (data.blurryDims && data.blurryDims.w) ? `${Math.round(data.blurryDims.w)}x${Math.round(data.blurryDims.h)}` : 'N/A';
+                const sharpDimsText = (data.sharpBox && data.sharpBox.width) ? `${Math.round(data.sharpBox.width)}x${Math.round(data.sharpBox.height)}` : '전체 화면';
+                const blurryDimsText = (data.blurryBox && data.blurryBox.width) ? `${Math.round(data.blurryBox.width)}x${Math.round(data.blurryBox.height)}` : '전체 화면';
 
                 const pairContainer = document.createElement('div');
                 pairContainer.className = 'p-4 bg-gray-50 rounded-lg shadow-inner border space-y-4';
                 pairContainer.innerHTML = `
                     <h4 class="font-bold text-md">@ ${data.time.toFixed(2)}초</h4>
                     
-                    <!-- Expanded View -->
+                    <!-- Expanded (Cropped) View -->
                     <div>
                         <h5 class="text-sm font-semibold text-gray-600 mb-2">확대 보기</h5>
                         <div class="flex gap-4">
                             <div class="flex-1 text-center">
-                                <p class="text-xs font-semibold text-green-600 mb-1">이전 프레임</p>
-                                <img src="${data.sharpUrl}" class="w-full rounded-md border" loading="lazy">
+                                <p class="text-xs font-semibold text-green-600 mb-1">이전 (얼굴)</p>
+                                <p class="text-xs text-gray-500 -mt-1 mb-1">${sharpDimsText}</p>
+                                <img src="${data.sharpCroppedUrl || data.sharpUrl}" class="w-full rounded-md border" loading="lazy">
                             </div>
                             <div class="flex-1 text-center">
-                                <p class="text-xs font-semibold ${isOverridden ? 'text-green-600' : 'text-red-600'} mb-1">${isOverridden ? '문제 프레임 (수동OK)' : '문제 프레임'}</p>
-                                <img src="${data.blurryUrl}" class="w-full rounded-md border" loading="lazy">
+                                <p class="text-xs font-semibold ${isOverridden ? 'text-green-600' : 'text-red-600'} mb-1">${isOverridden ? '문제 (얼굴, 수동OK)' : '문제 (얼굴)'}</p>
+                                <p class="text-xs text-gray-500 -mt-1 mb-1">${blurryDimsText}</p>
+                                <img src="${data.blurryCroppedUrl || data.blurryUrl}" class="w-full rounded-md border" loading="lazy">
                             </div>
                         </div>
                     </div>
 
-                    <!-- Original Size View -->
+                    <!-- Original Size View with Bounding Box -->
                     <div>
                         <h5 class="text-sm font-semibold text-gray-600 mb-2">원본 크기 (경계 상자)</h5>
                         <div class="flex gap-4">
                             <div class="flex-1 text-center">
-                                 <p class="text-xs text-gray-500 mb-1">${sharpDimsText}</p>
-                                <canvas class="keyframe-canvas bg-gray-200 rounded-md" data-url="${data.sharpUrl}" data-box="${JSON.stringify(data.sharpBox)}"></canvas>
+                                 <p class="text-xs text-gray-500 mb-1">이전 프레임</p>
+                                <canvas class="keyframe-canvas bg-gray-200 rounded-md w-full" style="aspect-ratio: 16/9;" data-url="${data.sharpUrl}" data-box='${JSON.stringify(data.sharpBox)}'></canvas>
                             </div>
                             <div class="flex-1 text-center">
-                                <p class="text-xs text-gray-500 mb-1">${blurryDimsText}</p>
-                                <canvas class="keyframe-canvas bg-gray-200 rounded-md" data-url="${data.blurryUrl}" data-box="${JSON.stringify(data.blurryBox)}"></canvas>
+                                <p class="text-xs text-gray-500 mb-1">문제 프레임</p>
+                                <canvas class="keyframe-canvas bg-gray-200 rounded-md w-full" style="aspect-ratio: 16/9;" data-url="${data.blurryUrl}" data-box='${JSON.stringify(data.blurryBox)}'></canvas>
                             </div>
                         </div>
                     </div>
@@ -578,14 +579,19 @@
                 const img = new Image();
                 img.crossOrigin = 'anonymous';
                 img.onload = () => {
+                    const aspectRatio = img.width / img.height;
+                    canvas.width = canvas.offsetWidth;
+                    canvas.height = canvas.offsetWidth / aspectRatio;
+
                     const ctx = canvas.getContext('2d');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    ctx.drawImage(img, 0, 0);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                     if (box) {
                         ctx.strokeStyle = 'red';
                         ctx.lineWidth = 2;
-                        ctx.strokeRect(box.x, box.y, box.width, box.height);
+                        // Scale box coordinates to canvas size
+                        const scaleX = canvas.width / img.naturalWidth;
+                        const scaleY = canvas.height / img.naturalHeight;
+                        ctx.strokeRect(box.x * scaleX, box.y * scaleY, box.width * scaleX, box.height * scaleY);
                     }
                 };
                 img.src = url;
@@ -613,16 +619,26 @@
             renderDetailedView(analysisId);
 
             try {
-                const existingResultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsIndexFile);
-                await createOrUpdateFileOnGitHub(GITHUB_CONFIG.resultsIndexFile, JSON.stringify(allAnalysisData, null, 2), existingResultsFile.sha, `Update manual override for ${analysisId}`);
+                // This is a simplified update. A real implementation would update only the relevant chunk.
+                const indexFile = await getFileFromGitHub(GITHUB_CONFIG.indexPath);
+                const chunkList = JSON.parse(decodeURIComponent(escape(atob(indexFile.content))));
+                const latestChunkName = chunkList[chunkList.length - 1];
+
+                const chunkFile = await getFileFromGitHub(`${GITHUB_CONFIG.resultsChunksPath}${latestChunkName}`);
+                const chunkData = JSON.parse(decodeURIComponent(escape(atob(chunkFile.content))));
+                
+                Object.assign(chunkData, allAnalysisData); // This is inefficient but works for now.
+                
+                await createOrUpdateFileOnGitHub(
+                    `${GITHUB_CONFIG.resultsChunksPath}${latestChunkName}`, 
+                    JSON.stringify(chunkData, null, 2), 
+                    chunkFile.sha, 
+                    `Update manual override in ${analysisId}`
+                );
+
             } catch (err) {
                  console.error("수동 보정 저장 실패:", err);
-                 // Revert on failure
-                if (action === 'ok') {
-                     delete keyFrame.manualOverride;
-                } else {
-                    keyFrame.manualOverride = 'ok';
-                }
+                if (action === 'ok') { delete keyFrame.manualOverride; } else { keyFrame.manualOverride = 'ok'; }
                 renderDetailedView(analysisId);
                 alert("수동 보정 저장에 실패했습니다.");
             }
@@ -659,7 +675,7 @@
                 const duration = await new Promise(resolve => { analysisVideo.onloadedmetadata = () => resolve(analysisVideo.duration); });
                 
                 const frameScores = [];
-                let previousFrameState = { status: '미검출', dataURL: null, box: null };
+                let previousFrameState = { status: '미검출', dataURL: null, faceDataURL: null, box: null };
                 const keyFramesToUpload = [];
                 const SAMPLING_INTERVAL_SECONDS = 0.5;
                 const totalSamples = Math.floor(duration / SAMPLING_INTERVAL_SECONDS);
@@ -681,6 +697,7 @@
                     const fullFrameDataURL = analysisCanvas.toDataURL('image/jpeg', 0.8);
                     
                     let currentBox = null;
+                    let faceDataURL = null;
 
                     if (centermostFace) {
                         const { x, y, width, height } = centermostFace.box;
@@ -691,6 +708,11 @@
                         
                         currentStatus = isBlurry ? '흐림' : '선명';
                         logLine += ` Score: ${score.toFixed(2)} | Status: ${currentStatus}`;
+
+                        const cropCanvas = document.createElement('canvas');
+                        cropCanvas.width = width; cropCanvas.height = height;
+                        cropCanvas.getContext('2d').putImageData(faceImageData, 0, 0);
+                        faceDataURL = cropCanvas.toDataURL('image/jpeg', 0.8);
 
                         frameScores.push({ time: currentTime, score });
                     } else {
@@ -703,12 +725,14 @@
                             time: currentTime,
                             sharpFrameUrl: previousFrameState.dataURL,
                             blurryFrameUrl: fullFrameDataURL,
+                            sharpCroppedUrl: previousFrameState.faceDataURL, // Cropped face image
+                            blurryCroppedUrl: faceDataURL, // Cropped face image
                             sharpBox: previousFrameState.box,
                             blurryBox: currentBox
                         });
-                        previousFrameState = { status: '흐림', dataURL: fullFrameDataURL, box: currentBox }; 
+                        previousFrameState = { status: '흐림', dataURL: fullFrameDataURL, faceDataURL, box: currentBox }; 
                     } else {
-                         previousFrameState = { status: currentStatus, dataURL: fullFrameDataURL, box: currentBox };
+                         previousFrameState = { status: currentStatus, dataURL: fullFrameDataURL, faceDataURL, box: currentBox };
                     }
 
                     appendLog(logLine);
@@ -726,25 +750,26 @@
                     const cleanFileName = file.name.split('.').slice(0, -1).join('');
                     const sharpFileName = `${cleanFileName}_${kf.time.toFixed(2)}s_sharp.jpeg`;
                     const blurryFileName = `${cleanFileName}_${kf.time.toFixed(2)}s_blurry.jpeg`;
+                    const sharpCroppedFileName = `${cleanFileName}_${kf.time.toFixed(2)}s_sharp_crop.jpeg`;
+                    const blurryCroppedFileName = `${cleanFileName}_${kf.time.toFixed(2)}s_blurry_crop.jpeg`;
+
                     const sharpUrl = await uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${sharpFileName}`, kf.sharpFrameUrl, true);
                     const blurryUrl = await uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${blurryFileName}`, kf.blurryFrameUrl, true);
+                    const sharpCroppedUrl = kf.sharpCroppedUrl ? await uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${sharpCroppedFileName}`, kf.sharpCroppedUrl, true) : sharpUrl;
+                    const blurryCroppedUrl = kf.blurryCroppedUrl ? await uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${blurryCroppedFileName}`, kf.blurryCroppedUrl, true) : blurryUrl;
+
                     if (sharpUrl && blurryUrl) { 
                         uploadedKeyFrames.push({
-                            time: kf.time, 
-                            sharpUrl, 
-                            blurryUrl,
-                            sharpBox: kf.sharpBox,
-                            blurryBox: kf.blurryBox
+                            time: kf.time, sharpUrl, blurryUrl, sharpCroppedUrl, blurryCroppedUrl,
+                            sharpBox: kf.sharpBox, blurryBox: kf.blurryBox
                         }); 
                     }
                 }
                 
                 allAnalysisData[analysisId] = {
-                    analysisId: analysisId, timestamp: new Date().toISOString(), fileName: file.name,
+                    analysisId, timestamp: new Date().toISOString(), fileName: file.name,
                     avgScore: detectedFrameCount > 0 ? totalScore / detectedFrameCount : 0,
-                    problematic: keyFramesToUpload.length > 0,
-                    blurryPercentage: blurryPercentage,
-                    frameScores: frameScores, 
+                    problematic: keyFramesToUpload.length > 0, blurryPercentage, frameScores, 
                     keyFrames: uploadedKeyFrames
                 };
                 
@@ -753,14 +778,29 @@
             }
             
             progressText.textContent = '최종 결과를 GitHub에 저장 중...';
-            const existingResultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsIndexFile);
+            // Logic to save the new analysis data into the correct chunk
+            // This is a simplified version. A robust implementation would be needed.
+            const indexFile = await getFileFromGitHub(GITHUB_CONFIG.indexPath);
+            const chunkList = JSON.parse(decodeURIComponent(escape(atob(indexFile.content))));
+            const latestChunkName = chunkList.length > 0 ? chunkList[chunkList.length - 1] : "results_1.json";
+
+            const chunkFile = await getFileFromGitHub(`${GITHUB_CONFIG.resultsChunksPath}${latestChunkName}`);
+            let chunkData = {};
+            let sha = null;
+            if (chunkFile) {
+                chunkData = JSON.parse(decodeURIComponent(escape(atob(chunkFile.content))));
+                sha = chunkFile.sha;
+            }
             
+            Object.assign(chunkData, allAnalysisData);
+
             await createOrUpdateFileOnGitHub(
-                GITHUB_CONFIG.resultsIndexFile, 
-                JSON.stringify(allAnalysisData, null, 2), 
-                existingResultsFile ? existingResultsFile.sha : null, 
+                `${GITHUB_CONFIG.resultsChunksPath}${latestChunkName}`,
+                JSON.stringify(chunkData, null, 2),
+                sha,
                 `Add analysis for ${videoFiles.length} file(s)`
             );
+
 
             loadingIndicator.style.display = 'none';
             analyzeButton.disabled = false;
