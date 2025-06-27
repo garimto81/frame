@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>포커스 이슈 탐지기 - Ver 0.08</title>
+    <title>포커스 이슈 탐지기 - Ver 0.09</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -37,7 +37,7 @@
         <header class="text-center mb-8">
             <h1 class="text-2xl md:text-3xl font-bold text-gray-900">
                 포커스 이슈 탐지기
-                <span class="text-base align-middle text-blue-600 font-semibold">Ver 0.08</span>
+                <span id="version-display" class="text-base align-middle text-blue-600 font-semibold"></span>
             </h1>
             <p id="model-status" class="text-sm text-yellow-600 mt-1">인식 모델 로딩 중...</p>
         </header>
@@ -102,6 +102,10 @@
     <!-- Chart Tooltip -->
     <div id="chart-tooltip" class="hidden"></div>
     <script>
+        const APP_VERSION = "0.09";
+        document.title = `포커스 이슈 탐지기 - Ver ${APP_VERSION}`;
+        document.getElementById('version-display').textContent = `Ver ${APP_VERSION}`;
+        
         // --- DOM References ---
         const videoFilesInput = document.getElementById('video-files-input');
         const thresholdSlider = document.getElementById('threshold-slider');
@@ -125,7 +129,7 @@
         let videoFiles = [];
         let modelsLoaded = false;
         const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
-        let allAnalysisData = {}; // Changed to an object
+        let allAnalysisData = {};
         let detailChart = null;
         let currentPage = 1;
         const ITEMS_PER_PAGE = 20;
@@ -145,7 +149,7 @@
                 logContainer.innerHTML = '';
             }
             const logEntry = document.createElement('div');
-            logEntry.textContent = message;
+            logEntry.textContent = `[Ver ${APP_VERSION}] ${message}`;
             logEntry.className = colorClass;
             logContainer.appendChild(logEntry);
             logContainer.scrollTop = logContainer.scrollHeight;
@@ -174,7 +178,7 @@
         async function getFileFromGitHub(path) {
             try {
                 const url = new URL(GITHUB_API_URL + path);
-                url.searchParams.append('_', new Date().getTime()); // Cache-busting
+                url.searchParams.append('_', new Date().getTime());
 
                 const response = await fetch(url.toString(), { headers: GITHUB_HEADERS, cache: "no-store" });
                 if (response.status === 404) return null;
@@ -222,47 +226,76 @@
                 return null; 
             }
         }
+
+        function migrateV1Data(dataArray) {
+            appendLog('[DB_MIGRATE] 구버전 데이터(Array) 발견. 신버전(Object)으로 변환합니다...', 'text-yellow-400');
+            const newDataObject = dataArray.reduce((acc, item) => {
+                if (item && item.analysisId) {
+                    acc[item.analysisId] = item;
+                }
+                return acc;
+            }, {});
+            appendLog(`[DB_MIGRATE] 변환 완료. ${Object.keys(newDataObject).length}개 기록 처리됨.`, 'text-green-500');
+            return newDataObject;
+        }
         
         async function initializeAndLoadGitHubData() {
             resultsListPlaceholder.textContent = 'GitHub에서 분석 기록을 확인합니다...';
-            appendLog('[DB_TRACE] 데이터 로딩 시도...', 'text-cyan-400');
+            appendLog('DB: 데이터 로딩 시도...', 'text-cyan-400');
             try {
                 let resultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsIndexFile);
                 
                 if (resultsFile === 'error') {
-                    appendLog('[DB_TRACE] 1. GitHub API 호출 실패.', 'text-red-500');
+                    appendLog('DB: 1. GitHub API 호출 실패.', 'text-red-500');
                     throw new Error('GitHub 저장소 접근 실패');
                 }
-                appendLog('[DB_TRACE] 1. GitHub API 호출 성공.', 'text-green-500');
+                appendLog('DB: 1. GitHub API 호출 성공.', 'text-green-500');
 
                 if (resultsFile === null) {
-                    appendLog('[DB_TRACE] 2. results.json 파일 없음. 새로 생성 시도...', 'text-yellow-400');
+                    appendLog('DB: 2. results.json 파일 없음. 새로 생성합니다...', 'text-yellow-400');
                     await createOrUpdateFileOnGitHub(GITHUB_CONFIG.resultsIndexFile, '{}', null, 'Initialize results.json');
-                    appendLog('[DB_TRACE] 3. results.json 파일 생성 완료.', 'text-green-500');
+                    appendLog('DB: 3. results.json 파일 생성 완료.', 'text-green-500');
                     allAnalysisData = {};
                 } else {
-                     appendLog('[DB_TRACE] 2. results.json 파일 발견됨.', 'text-green-500');
-                }
-
-                if (resultsFile && resultsFile.content) {
-                    appendLog('[DB_TRACE] 3. 파일 내용(content) 확인. 데이터 파싱 시도...');
-                    try {
-                        const content = decodeURIComponent(escape(atob(resultsFile.content)));
-                        allAnalysisData = JSON.parse(content);
-                        appendLog(`[DB_TRACE] 4. 데이터 파싱 성공. ${Object.keys(allAnalysisData).length}개의 기록 발견됨.`, 'text-green-500');
-                    } catch (parseError) {
-                        appendLog('[DB_TRACE] 4. 데이터 파싱 실패! 파일이 손상되었을 수 있습니다.', 'text-red-500');
-                        console.error("JSON Parse Error:", parseError);
-                        allAnalysisData = {}; // Reset to avoid further errors
+                    appendLog('DB: 2. results.json 파일 발견됨.', 'text-green-500');
+                    let content;
+                    // Handle large files that don't include content directly
+                    if (resultsFile.content) {
+                        appendLog('DB: 3a. 파일 내용(content) 직접 확인. 디코딩 시작...');
+                        content = decodeURIComponent(escape(atob(resultsFile.content)));
+                    } else if (resultsFile.download_url) {
+                        appendLog('DB: 3a. 파일 내용 없음 (대용량 추정). download_url에서 직접 가져옵니다...', 'text-yellow-400');
+                        const dlResponse = await fetch(resultsFile.download_url);
+                        if (!dlResponse.ok) throw new Error('download_url에서 파일 다운로드 실패');
+                        content = await dlResponse.text();
+                    } else {
+                        throw new Error("파일 내용은 없으나 download_url도 찾을 수 없음");
                     }
-                } else {
-                    appendLog('[DB_TRACE] 3. 파일은 있으나 내용이 비어있거나 없음. 초기화합니다.', 'text-yellow-400');
-                    allAnalysisData = {};
+                    
+                    appendLog('DB: 3b. 내용 확인 완료. 데이터 파싱 시도...');
+                    try {
+                        let parsedData = JSON.parse(content);
+
+                        // Check for old data format (Array) and migrate it
+                        if (Array.isArray(parsedData)) {
+                            allAnalysisData = migrateV1Data(parsedData);
+                            appendLog('[DB_MIGRATE] 변환된 데이터를 GitHub에 다시 저장합니다...', 'text-yellow-400');
+                            await createOrUpdateFileOnGitHub(GITHUB_CONFIG.resultsIndexFile, JSON.stringify(allAnalysisData, null, 2), resultsFile.sha, 'Data Migration: Array to Object');
+                            appendLog('[DB_MIGRATE] 데이터 저장 완료.', 'text-green-500');
+                        } else {
+                            allAnalysisData = parsedData;
+                        }
+                        appendLog(`DB: 4. 데이터 파싱 및 처리 성공. ${Object.keys(allAnalysisData).length}개의 기록 발견됨.`, 'text-green-500');
+                    } catch (parseError) {
+                        appendLog('DB: 4. 데이터 파싱 실패! 파일이 손상되었을 수 있습니다.', 'text-red-500');
+                        console.error("JSON Parse Error:", parseError);
+                        allAnalysisData = {};
+                    }
                 }
                 renderAnalysisResultsList();
 
             } catch (e) {
-                appendLog(`[DB_TRACE] 치명적 오류 발생: ${e.message}`, 'text-red-500');
+                appendLog(`DB: 치명적 오류 발생: ${e.message}`, 'text-red-500');
                 console.error("Failed to initialize or load data:", e);
                 resultsListPlaceholder.textContent = `데이터 로딩 오류: ${e.message}`;
             }
@@ -545,7 +578,6 @@
                     if (sharpUrl && blurryUrl) { uploadedKeyFrames.push({time: kf.time, sharpUrl, blurryUrl}); }
                 }
                 
-                // Add the new analysis to our object
                 allAnalysisData[analysisId] = {
                     analysisId: analysisId, timestamp: new Date().toISOString(), fileName: file.name,
                     avgScore: detectedFrameCount > 0 ? totalScore / detectedFrameCount : 0,
