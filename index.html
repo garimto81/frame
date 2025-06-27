@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>포커스 이슈 탐지기 - Ver 0.07</title>
+    <title>포커스 이슈 탐지기 - Ver 0.08</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -37,7 +37,7 @@
         <header class="text-center mb-8">
             <h1 class="text-2xl md:text-3xl font-bold text-gray-900">
                 포커스 이슈 탐지기
-                <span class="text-base align-middle text-blue-600 font-semibold">Ver 0.07</span>
+                <span class="text-base align-middle text-blue-600 font-semibold">Ver 0.08</span>
             </h1>
             <p id="model-status" class="text-sm text-yellow-600 mt-1">인식 모델 로딩 중...</p>
         </header>
@@ -125,7 +125,7 @@
         let videoFiles = [];
         let modelsLoaded = false;
         const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
-        let allAnalysisData = [];
+        let allAnalysisData = {}; // Changed to an object
         let detailChart = null;
         let currentPage = 1;
         const ITEMS_PER_PAGE = 20;
@@ -237,25 +237,30 @@
 
                 if (resultsFile === null) {
                     appendLog('[DB_TRACE] 2. results.json 파일 없음. 새로 생성 시도...', 'text-yellow-400');
-                    await createOrUpdateFileOnGitHub(GITHUB_CONFIG.resultsIndexFile, '[]', null, 'Initialize results.json');
+                    await createOrUpdateFileOnGitHub(GITHUB_CONFIG.resultsIndexFile, '{}', null, 'Initialize results.json');
                     appendLog('[DB_TRACE] 3. results.json 파일 생성 완료.', 'text-green-500');
-                    resultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsIndexFile);
+                    allAnalysisData = {};
                 } else {
                      appendLog('[DB_TRACE] 2. results.json 파일 발견됨.', 'text-green-500');
                 }
 
                 if (resultsFile && resultsFile.content) {
                     appendLog('[DB_TRACE] 3. 파일 내용(content) 확인. 데이터 파싱 시도...');
-                    const content = decodeURIComponent(escape(atob(resultsFile.content)));
-                    allAnalysisData = JSON.parse(content).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-                    appendLog(`[DB_TRACE] 4. 데이터 파싱 성공. ${allAnalysisData.length}개의 기록 발견됨.`, 'text-green-500');
-                    renderAnalysisResultsList();
+                    try {
+                        const content = decodeURIComponent(escape(atob(resultsFile.content)));
+                        allAnalysisData = JSON.parse(content);
+                        appendLog(`[DB_TRACE] 4. 데이터 파싱 성공. ${Object.keys(allAnalysisData).length}개의 기록 발견됨.`, 'text-green-500');
+                    } catch (parseError) {
+                        appendLog('[DB_TRACE] 4. 데이터 파싱 실패! 파일이 손상되었을 수 있습니다.', 'text-red-500');
+                        console.error("JSON Parse Error:", parseError);
+                        allAnalysisData = {}; // Reset to avoid further errors
+                    }
                 } else {
-                    appendLog('[DB_TRACE] 3. 파일은 있으나 내용이 비어있거나 없음.', 'text-yellow-400');
-                    allAnalysisData = [];
-                    resultsListPlaceholder.textContent = '저장된 분석 기록이 없습니다.';
-                    renderAnalysisResultsList();
+                    appendLog('[DB_TRACE] 3. 파일은 있으나 내용이 비어있거나 없음. 초기화합니다.', 'text-yellow-400');
+                    allAnalysisData = {};
                 }
+                renderAnalysisResultsList();
+
             } catch (e) {
                 appendLog(`[DB_TRACE] 치명적 오류 발생: ${e.message}`, 'text-red-500');
                 console.error("Failed to initialize or load data:", e);
@@ -279,7 +284,8 @@
             if (tooltip.opacity === 0) { chartTooltip.style.opacity = 0; chartTooltip.classList.add('hidden'); return; }
             
             const analysisId = chart.canvas.dataset.analysisId;
-            const analysisData = allAnalysisData.find(d => d.analysisId === analysisId);
+            const analysisData = allAnalysisData[analysisId];
+            if (!analysisData) return;
             const dataPoint = tooltip.dataPoints[0];
             const keyFrameData = analysisData.keyFrames.find(kf => kf.time === dataPoint.parsed.x);
 
@@ -304,15 +310,17 @@
             resultsListPlaceholder.classList.add('hidden');
             resultsListContainer.innerHTML = '';
             
-            if (!allAnalysisData || allAnalysisData.length === 0) {
+            const dataArray = Object.values(allAnalysisData).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            if (dataArray.length === 0) {
                  resultsListPlaceholder.textContent = '저장된 분석 기록이 없습니다.';
                  resultsListPlaceholder.classList.remove('hidden');
                  return;
             }
 
-            const totalPages = Math.ceil(allAnalysisData.length / ITEMS_PER_PAGE);
+            const totalPages = Math.ceil(dataArray.length / ITEMS_PER_PAGE);
             const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-            const paginatedData = allAnalysisData.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+            const paginatedData = dataArray.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
             paginatedData.forEach((data) => {
                 const item = document.createElement('div');
@@ -350,7 +358,7 @@
             detailsSection.classList.remove('hidden');
             logContainer.innerHTML = '<p class="text-gray-400 text-center py-4">로그를 불러오는 중...</p>';
             
-            const resultData = allAnalysisData.find(d => d.analysisId === analysisId);
+            const resultData = allAnalysisData[analysisId];
             if (!resultData) return;
             detailsTitle.textContent = `상세 분석: ${resultData.fileName}`;
 
@@ -430,12 +438,11 @@
         }
 
         async function handleManualCorrection(analysisId, time) {
-            const analysisIndex = allAnalysisData.findIndex(d => d.analysisId === analysisId);
-            if (analysisIndex === -1) return;
-            const keyFrameIndex = allAnalysisData[analysisIndex].keyFrames.findIndex(kf => kf.time === time);
+            if (!allAnalysisData[analysisId]) return;
+            const keyFrameIndex = allAnalysisData[analysisId].keyFrames.findIndex(kf => kf.time === time);
             if (keyFrameIndex === -1) return;
 
-            allAnalysisData[analysisIndex].keyFrames[keyFrameIndex].manualOverride = 'ok';
+            allAnalysisData[analysisId].keyFrames[keyFrameIndex].manualOverride = 'ok';
             renderDetailedView(analysisId);
 
             const existingResultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsIndexFile);
@@ -463,8 +470,6 @@
             analysisVideo.muted = true;
             analysisVideo.preload = 'metadata';
             
-            let newAnalyses = [];
-
             for (let i = 0; i < videoFiles.length; i++) {
                 const file = videoFiles[i];
                 const cleanFileNameForId = file.name.replace(/[^a-zA-Z0-9]/g, '_');
@@ -540,12 +545,13 @@
                     if (sharpUrl && blurryUrl) { uploadedKeyFrames.push({time: kf.time, sharpUrl, blurryUrl}); }
                 }
                 
-                newAnalyses.push({
+                // Add the new analysis to our object
+                allAnalysisData[analysisId] = {
                     analysisId: analysisId, timestamp: new Date().toISOString(), fileName: file.name,
                     avgScore: detectedFrameCount > 0 ? totalScore / detectedFrameCount : 0,
                     problematic: blurryPercentage > 10, blurryPercentage: blurryPercentage,
                     frameScores: frameScores.map(d => ({time: d.time, score: d.score})), keyFrames: uploadedKeyFrames
-                });
+                };
                 
                 URL.revokeObjectURL(fileURL);
                 appendLog(`> [END] '${file.name}' 분석 완료.`);
@@ -553,15 +559,13 @@
             
             progressText.textContent = '최종 결과를 GitHub에 저장 중...';
             const existingResultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsIndexFile);
-            let currentResults = []; 
-            let currentSha = null;
-            if (existingResultsFile && existingResultsFile.content) {
-                currentResults = JSON.parse(decodeURIComponent(escape(atob(existingResultsFile.content))));
-                currentSha = existingResultsFile.sha;
-            }
-            const allResults = [...newAnalyses, ...currentResults];
             
-            await createOrUpdateFileOnGitHub(GITHUB_CONFIG.resultsIndexFile, JSON.stringify(allResults, null, 2), currentSha, `Add analysis for ${newAnalyses.length} file(s)`);
+            await createOrUpdateFileOnGitHub(
+                GITHUB_CONFIG.resultsIndexFile, 
+                JSON.stringify(allAnalysisData, null, 2), 
+                existingResultsFile ? existingResultsFile.sha : null, 
+                `Add analysis for ${videoFiles.length} file(s)`
+            );
 
             loadingIndicator.style.display = 'none';
             analyzeButton.disabled = false;
