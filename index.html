@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>포커스 이슈 탐지기 (GitHub 연동) - Ver 0.04</title>
+    <title>포커스 이슈 탐지기 (GitHub 연동) - Ver 0.05</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -41,7 +41,7 @@
         <header class="relative text-center mb-8 py-4">
             <h1 class="text-2xl md:text-3xl font-bold text-gray-900">
                 포커스 이슈 탐지기 (GitHub 연동)
-                <span class="text-base align-middle text-blue-600 font-semibold">Ver 0.04</span>
+                <span class="text-base align-middle text-blue-600 font-semibold">Ver 0.05</span>
             </h1>
             <p id="model-status" class="text-sm text-yellow-600 mt-1">인식 모델 로딩 중...</p>
              <div class="absolute top-4 right-4">
@@ -201,7 +201,11 @@
         // --- GitHub API Functions ---
         async function getFileFromGitHub(path) {
             try {
-                const response = await fetch(GITHUB_API_URL + path, { headers: GITHUB_HEADERS, cache: 'no-store' });
+                // Add a cache-busting query parameter to prevent browser caching issues
+                const url = new URL(GITHUB_API_URL + path);
+                url.searchParams.append('_', new Date().getTime());
+                
+                const response = await fetch(url.toString(), { headers: GITHUB_HEADERS, cache: 'no-store' });
                 if (response.status === 404) return null;
                 if (!response.ok) throw new Error(`GitHub API Error: ${response.status} ${response.statusText}`);
                 return await response.json();
