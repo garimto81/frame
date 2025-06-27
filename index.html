@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>포커스 이슈 탐지기 (GitHub 연동) - 개선판</title>
+    <title>포커스 이슈 탐지기 (GitHub 연동) - Ver 0.04</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <style>
         body { font-family: 'Noto Sans KR', sans-serif; scroll-behavior: smooth; }
         .loader { border: 5px solid #f3f3f3; border-top: 5px solid #3498db; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
@@ -38,10 +39,13 @@
 
     <div class="container mx-auto p-4 md:p-8 max-w-7xl">
         <header class="relative text-center mb-8 py-4">
-            <h1 class="text-2xl md:text-3xl font-bold text-gray-900">포커스 이슈 탐지기 (GitHub 연동)</h1>
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-900">
+                포커스 이슈 탐지기 (GitHub 연동)
+                <span class="text-base align-middle text-blue-600 font-semibold">Ver 0.04</span>
+            </h1>
             <p id="model-status" class="text-sm text-yellow-600 mt-1">인식 모델 로딩 중...</p>
              <div class="absolute top-4 right-4">
-                <a href="how-it-works.html" target="_blank" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm font-medium hover:bg-gray-300 transition">작동 방식 보기</a>
+                <button id="how-it-works-button" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm font-medium hover:bg-gray-300 transition">작동 방식 보기</button>
             </div>
         </header>
         
@@ -65,9 +69,6 @@
                 <div class="mt-6 text-center">
                      <button id="analyze-button" class="w-full md:w-auto bg-green-600 text-white font-bold py-3 px-12 rounded-full hover:bg-green-700 transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed">
                         분석 시작
-                    </button>
-                    <button id="cancel-button" class="hidden w-full md:w-auto bg-red-600 text-white font-bold py-3 px-12 rounded-full hover:bg-red-700 transition duration-300">
-                        분석 중단
                     </button>
                     <div id="loading-indicator" class="hidden mt-4 flex flex-col items-center">
                         <div class="loader"></div>
@@ -109,168 +110,45 @@
         </main>
     </div>
 
+    <!-- How It Works Modal -->
+    <div id="how-it-works-modal" class="hidden fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center border-b p-4">
+                <h3 class="text-xl font-bold">작동 방식</h3>
+                <button id="close-modal-button" class="text-gray-400 hover:text-gray-700 text-3xl leading-none">&times;</button>
+            </div>
+            <div class="p-6 space-y-4 overflow-y-auto">
+                 <div>
+                    <h4 class="font-bold text-lg mb-2">1. 영상 분석 및 설정</h4>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        사용자는 분석할 영상 파일(.mp4, .mov)을 선택합니다. '흐림 기준값'을 조절하여 선명도 판단의 민감도를 설정할 수 있습니다. (값이 낮을수록 사소한 흐림도 문제로 감지합니다.) '분석 시작'을 누르면 분석이 시작되며, 브라우저가 잠시 멈출 수 있습니다.
+                    </p>
+                </div>
+                <div>
+                    <h4 class="font-bold text-lg mb-2">2. 얼굴 탐지 및 선명도 측정</h4>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        영상에서 0.5초 간격으로 프레임을 추출하여 <strong>face-api.js</strong>로 얼굴을 탐지합니다. 여러 얼굴이 있다면 영상 중앙에 가장 가까운 얼굴을 기준으로 삼습니다. 탐지된 얼굴 영역에 '라플라시안 분산' 알고리즘을 적용하여 선명도 점수를 계산합니다. 점수가 낮을수록 초점이 흐린 이미지입니다.
+                    </p>
+                </div>
+                <div>
+                    <h4 class="font-bold text-lg mb-2">3. 문제 프레임 감지 및 저장</h4>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        선명도 점수가 설정된 기준값보다 낮으면 '흐림'으로 판단합니다. '선명' 상태에서 '흐림'으로 전환되는 시점을 '주요 프레임'으로 감지하고, 직전의 선명한 프레임과 현재의 흐린 프레임을 한 쌍으로 캡처합니다. 분석 완료 후, 모든 결과는 GitHub 저장소에 안전하게 업로드됩니다.
+                    </p>
+                </div>
+                <div>
+                    <h4 class="font-bold text-lg mb-2">4. 결과 확인 및 수동 보정</h4>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        분석 기록을 클릭하면 상세 그래프, 주요 프레임, 전체 로그를 확인할 수 있습니다. 그래프의 점 위에 마우스를 올리면 해당 시점의 프레임 이미지를 바로 볼 수 있습니다. 시스템이 '흐림'으로 잘못 판단한 경우, '이 프레임은 문제 없음' 버튼을 눌러 수동으로 상태를 재정의하고 저장할 수 있습니다.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Chart Tooltip -->
     <div id="chart-tooltip" class="hidden"></div>
     
-    <!-- 
-        Web Worker for background processing.
-        This script is embedded here using a <script type="javascript/worker">.
-        This is a common technique to keep the project self-contained in one HTML file.
-        In a real-world scenario, this would be a separate analyzer.worker.js file.
-    -->
-    <script type="javascript/worker" id="analyzer-worker">
-        // In a real file, you would use: importScripts('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js');
-        // Since we are in a worker, we can't access the `window` object directly. 
-        // We have to load the script this way.
-        self.importScripts('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js');
-
-        const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
-        let modelsLoaded = false;
-
-        async function loadModels() {
-            if (modelsLoaded) return;
-            await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-            modelsLoaded = true;
-        }
-
-        function calculateFocusScore(imageData) {
-            const { width, height, data } = imageData;
-            if (width === 0 || height === 0) return 0;
-            const gray = new Uint8Array(width * height);
-            for (let i = 0; i < data.length; i += 4) {
-                gray[i / 4] = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-            }
-            let laplacianMean = 0;
-            const laplacianValues = [];
-            for (let y = 1; y < height - 1; y++) {
-                for (let x = 1; x < width - 1; x++) {
-                    const i = y * width + x;
-                    const laplacian = gray[i - width] + gray[i + width] + gray[i - 1] + gray[i + 1] - 4 * gray[i];
-                    laplacianValues.push(laplacian);
-                    laplacianMean += laplacian;
-                }
-            }
-            if (laplacianValues.length === 0) return 0;
-            laplacianMean /= laplacianValues.length;
-            return laplacianValues.reduce((acc, val) => acc + Math.pow(val - laplacianMean, 2), 0) / laplacianValues.length;
-        }
-
-        function getCentermostFace(detections, videoWidth, videoHeight) {
-            if (!detections || detections.length === 0) return null;
-            if (detections.length === 1) return detections[0];
-            const frameCenterX = videoWidth / 2, frameCenterY = videoHeight / 2;
-            let centermostFace = null, minDistance = Infinity;
-            for (const detection of detections) {
-                const faceCenterX = detection.box.x + detection.box.width / 2;
-                const faceCenterY = detection.box.y + detection.box.height / 2;
-                const distance = Math.sqrt(Math.pow(frameCenterX - faceCenterX, 2) + Math.pow(frameCenterY - faceCenterY, 2));
-                if (distance < minDistance) {
-                    minDistance = distance;
-                    centermostFace = detection;
-                }
-            }
-            return centermostFace;
-        }
-
-        self.onmessage = async (event) => {
-            const { file, threshold } = event.data;
-            await loadModels();
-
-            const analysisVideo = new OffscreenCanvas(1, 1).getContext('2d').canvas.ownerDocument.createElement('video');
-            analysisVideo.crossOrigin = 'anonymous';
-            const analysisCanvas = new OffscreenCanvas(1, 1);
-            const analysisCtx = analysisCanvas.getContext('2d', { willReadFrequently: true });
-            const cropCanvas = new OffscreenCanvas(1, 1);
-            const cropCtx = cropCanvas.getContext('2d');
-            analysisVideo.muted = true;
-            analysisVideo.preload = 'metadata';
-
-            const fileURL = URL.createObjectURL(file);
-            analysisVideo.src = fileURL;
-
-            const duration = await new Promise(resolve => {
-                analysisVideo.onloadedmetadata = () => resolve(analysisVideo.duration);
-            });
-            
-            const analysisId = `${file.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString()}`;
-            self.postMessage({ type: 'start', payload: { fileName: file.name, analysisId } });
-            
-            let liveLogContent = `[START] '${file.name}' 분석을 시작합니다. (ID: ${analysisId})\n`;
-            
-            const frameScores = [];
-            let previousFrame = null;
-            const keyFramesToCapture = [];
-            const SAMPLING_INTERVAL_SECONDS = 0.5;
-            const totalSamples = Math.floor(duration / SAMPLING_INTERVAL_SECONDS);
-
-            for (let j = 0; j < totalSamples; j++) {
-                const currentTime = j * SAMPLING_INTERVAL_SECONDS;
-                
-                self.postMessage({ type: 'progress', payload: { progress: (j / totalSamples) * 100, text: `샘플링 ${j + 1}/${totalSamples}` } });
-
-                await new Promise(resolve => { analysisVideo.onseeked = () => resolve(); analysisVideo.currentTime = currentTime; });
-
-                const detections = await faceapi.detectAllFaces(analysisVideo, new faceapi.TinyFaceDetectorOptions());
-                const centermostFace = getCentermostFace(detections, analysisVideo.videoWidth, analysisVideo.videoHeight);
-                
-                let logLine;
-                if (centermostFace) {
-                    analysisCanvas.width = analysisVideo.videoWidth;
-                    analysisCanvas.height = analysisVideo.videoHeight;
-                    analysisCtx.drawImage(analysisVideo, 0, 0, analysisCanvas.width, analysisCanvas.height);
-                    
-                    const { x, y, width, height } = centermostFace.box;
-                    const faceImageData = analysisCtx.getImageData(x, y, width, height);
-                    const score = calculateFocusScore(faceImageData);
-                    const isBlurry = score < threshold;
-
-                    logLine = `Time: ${currentTime.toFixed(2)}s | Score: ${score.toFixed(2)} | Status: ${isBlurry ? '흐림' : '선명'}`;
-                    
-                    cropCanvas.width = width; cropCanvas.height = height;
-                    cropCtx.putImageData(faceImageData, 0, 0);
-                    const dataURL = await cropCanvas.convertToBlob({ type: 'image/jpeg', quality: 0.8 }).then(blob => new Promise(resolve => {
-                        const reader = new FileReader();
-                        reader.onload = () => resolve(reader.result);
-                        reader.readAsDataURL(blob);
-                    }));
-
-                    const currentFrame = { time: currentTime, score: score, isBlurry: isBlurry, dataURL: dataURL };
-                    frameScores.push(currentFrame);
-
-                    if (previousFrame && !previousFrame.isBlurry && currentFrame.isBlurry) {
-                        keyFramesToCapture.push({ time: currentFrame.time, sharpDataURL: previousFrame.dataURL, blurryDataURL: currentFrame.dataURL });
-                    }
-                    previousFrame = currentFrame;
-                } else {
-                    logLine = `Time: ${currentTime.toFixed(2)}s | Status: 얼굴 미검출`;
-                    previousFrame = null;
-                }
-                liveLogContent += logLine + '\n';
-                self.postMessage({ type: 'log', payload: { line: logLine, isBlurry: logLine.includes('흐림') } });
-            }
-
-            const detectedFrameCount = frameScores.length;
-            const totalScore = frameScores.reduce((sum, frame) => sum + frame.score, 0);
-            const blurryFrameCount = frameScores.filter(f => f.isBlurry).length;
-            const blurryPercentage = detectedFrameCount > 0 ? (blurryFrameCount / detectedFrameCount) * 100 : 0;
-            
-            const result = {
-                analysisId: analysisId,
-                timestamp: new Date().toISOString(),
-                fileName: file.name,
-                avgScore: detectedFrameCount > 0 ? totalScore / detectedFrameCount : 0,
-                problematic: blurryPercentage > 10,
-                blurryPercentage: blurryPercentage,
-                frameScores: frameScores.map(d => ({time: d.time, score: d.score})),
-                keyFramesToCapture: keyFramesToCapture,
-                logContent: liveLogContent,
-            };
-
-            self.postMessage({ type: 'done', payload: result });
-            URL.revokeObjectURL(fileURL);
-        };
-    </script>
-
     <script type="module">
         // --- DOM References ---
         const dom = {
@@ -278,7 +156,6 @@
             thresholdSlider: document.getElementById('threshold-slider'),
             thresholdValueEl: document.getElementById('threshold-value'),
             analyzeButton: document.getElementById('analyze-button'),
-            cancelButton: document.getElementById('cancel-button'),
             loadingIndicator: document.getElementById('loading-indicator'),
             progressText: document.getElementById('progress-text'),
             progressBar: document.getElementById('progress-bar'),
@@ -293,6 +170,9 @@
             chartTooltip: document.getElementById('chart-tooltip'),
             keyFramesContainer: document.getElementById('key-frames-container'),
             keyFramesPlaceholder: document.getElementById('key-frames-placeholder'),
+            howItWorksButton: document.getElementById('how-it-works-button'),
+            howItWorksModal: document.getElementById('how-it-works-modal'),
+            closeModalButton: document.getElementById('close-modal-button'),
         };
 
         // --- Global State ---
@@ -302,10 +182,10 @@
             allAnalysisData: [],
             detailChart: null,
             currentPage: 1,
-            analysisWorker: null,
             isAnalyzing: false,
         };
         const ITEMS_PER_PAGE = 20;
+        const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
 
         // --- GitHub API State ---
         const GITHUB_CONFIG = {
@@ -321,7 +201,7 @@
         // --- GitHub API Functions ---
         async function getFileFromGitHub(path) {
             try {
-                const response = await fetch(GITHUB_API_URL + path, { headers: GITHUB_HEADERS });
+                const response = await fetch(GITHUB_API_URL + path, { headers: GITHUB_HEADERS, cache: 'no-store' });
                 if (response.status === 404) return null;
                 if (!response.ok) throw new Error(`GitHub API Error: ${response.status} ${response.statusText}`);
                 return await response.json();
@@ -355,18 +235,25 @@
             const body = {
                 message: commitMessage,
                 content: btoa(unescape(encodeURIComponent(content))),
-                sha: sha
             };
+            // For updates, 'sha' is required. For new files, it must be omitted.
+            if (sha) {
+                body.sha = sha;
+            }
+            
             try {
                 const response = await fetch(GITHUB_API_URL + path, {
                     method: 'PUT',
                     headers: GITHUB_HEADERS,
                     body: JSON.stringify(body)
                 });
-                if (!response.ok) throw new Error(`GitHub API Error: ${response.status} ${response.statusText}`);
+                if (!response.ok) {
+                    const errorBody = await response.json();
+                    throw new Error(`GitHub API Error: ${response.status} ${response.statusText} - ${errorBody.message}`);
+                }
             } catch (error) {
                 console.error(`GitHub Update Error: ${path}`, error);
-                throw error; // Rethrow to handle it in the calling function
+                throw error;
             }
         }
         
@@ -378,11 +265,9 @@
         function toggleAnalysisControls(isAnalyzing) {
             state.isAnalyzing = isAnalyzing;
             dom.loadingIndicator.classList.toggle('hidden', !isAnalyzing);
-            dom.analyzeButton.classList.toggle('hidden', isAnalyzing);
-            dom.cancelButton.classList.toggle('hidden', !isAnalyzing);
+            dom.analyzeButton.disabled = isAnalyzing;
             dom.videoFilesInput.disabled = isAnalyzing;
             dom.thresholdSlider.disabled = isAnalyzing;
-            updateAnalyzeButtonState();
         }
 
         function appendLog(message, colorClass) {
@@ -459,20 +344,24 @@
             renderDetailChart(resultData);
             renderKeyFramesForDetail(resultData);
 
-            const logFile = await getFileFromGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/log.txt`);
-            if (logFile && logFile.content) {
-                const logContent = decodeURIComponent(escape(atob(logFile.content)));
-                dom.logContainer.innerHTML = '';
-                logContent.split('\n').forEach(line => {
-                    const logEntry = document.createElement('div');
-                    logEntry.textContent = line;
-                    if(line.includes('흐림')) logEntry.className = 'text-red-500';
-                    else if(line.includes('선명')) logEntry.className = 'text-green-500';
-                    else if(line.startsWith('[START]')) logEntry.className = 'text-cyan-400';
-                    else logEntry.className = 'text-gray-400';
-                    dom.logContainer.appendChild(logEntry);
-                });
-            } else {
+            try {
+                const logFile = await getFileFromGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/log.txt`);
+                if (logFile && logFile.content) {
+                    const logContent = decodeURIComponent(escape(atob(logFile.content)));
+                    dom.logContainer.innerHTML = '';
+                    logContent.split('\n').forEach(line => {
+                        const logEntry = document.createElement('div');
+                        logEntry.textContent = line;
+                        if(line.includes('흐림')) logEntry.className = 'text-red-500';
+                        else if(line.includes('선명')) logEntry.className = 'text-green-500';
+                        else if(line.startsWith('[START]')) logEntry.className = 'text-cyan-400';
+                        else logEntry.className = 'text-gray-400';
+                        dom.logContainer.appendChild(logEntry);
+                    });
+                } else {
+                    throw new Error("Log file content is empty.");
+                }
+            } catch(e) {
                 dom.logContainer.innerHTML = '<p class="text-gray-400 text-center py-4">저장된 로그 파일을 찾을 수 없습니다.</p>';
             }
         }
@@ -559,24 +448,70 @@
         }
 
         // --- Core Logic ---
+        function calculateFocusScore(imageData) {
+            const { width, height, data } = imageData;
+            if (width === 0 || height === 0) return 0;
+            const gray = new Uint8Array(width * height);
+            for (let i = 0; i < data.length; i += 4) {
+                gray[i / 4] = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+            }
+            let laplacianMean = 0;
+            const laplacianValues = [];
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    const i = y * width + x;
+                    const laplacian = gray[i - width] + gray[i + width] + gray[i - 1] + gray[i + 1] - 4 * gray[i];
+                    laplacianValues.push(laplacian);
+                    laplacianMean += laplacian;
+                }
+            }
+            if (laplacianValues.length === 0) return 0;
+            laplacianMean /= laplacianValues.length;
+            return laplacianValues.reduce((acc, val) => acc + Math.pow(val - laplacianMean, 2), 0) / laplacianValues.length;
+        }
+
+        function getCentermostFace(detections, videoWidth, videoHeight) {
+            if (!detections || detections.length === 0) return null;
+            if (detections.length === 1) return detections[0];
+            const frameCenterX = videoWidth / 2, frameCenterY = videoHeight / 2;
+            let centermostFace = null, minDistance = Infinity;
+            for (const detection of detections) {
+                const faceCenterX = detection.box.x + detection.box.width / 2;
+                const faceCenterY = detection.box.y + detection.box.height / 2;
+                const distance = Math.sqrt(Math.pow(frameCenterX - faceCenterX, 2) + Math.pow(frameCenterY - faceCenterY, 2));
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    centermostFace = detection;
+                }
+            }
+            return centermostFace;
+        }
+
         async function initializeAndLoadGitHubData() {
             dom.resultsListPlaceholder.textContent = 'GitHub에서 분석 기록을 확인합니다...';
-            let resultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsIndexFile);
+            try {
+                let resultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsIndexFile);
 
-            if (resultsFile === 'error') { dom.resultsListPlaceholder.textContent = 'GitHub 저장소 접근 실패.'; return; }
-            
-            if (resultsFile === null) { // Create if not exists
-                await updateFileOnGitHub(GITHUB_CONFIG.resultsIndexFile, '[]', null, 'Initialize results.json');
-                resultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsIndexFile);
+                if (resultsFile === 'error') { throw new Error('GitHub 저장소 접근에 실패했습니다.'); }
+                
+                if (resultsFile === null) { 
+                    console.log('results.json not found. Creating a new one.');
+                    await updateFileOnGitHub(GITHUB_CONFIG.resultsIndexFile, '[]', null, 'Initialize results.json');
+                    resultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsIndexFile);
+                }
+                
+                if(resultsFile && resultsFile.content) {
+                    const content = decodeURIComponent(escape(atob(resultsFile.content)));
+                    state.allAnalysisData = JSON.parse(content).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                } else {
+                    state.allAnalysisData = [];
+                }
+            } catch(error) {
+                console.error("Error initializing data:", error);
+                dom.resultsListPlaceholder.textContent = `데이터 로드 오류: ${error.message}`;
+            } finally {
+                renderAnalysisResultsList();
             }
-            
-            if(resultsFile && resultsFile.content) {
-                const content = decodeURIComponent(escape(atob(resultsFile.content)));
-                state.allAnalysisData = JSON.parse(content).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-            } else {
-                state.allAnalysisData = [];
-            }
-            renderAnalysisResultsList();
         }
 
         async function handleManualCorrection(analysisId, time) {
@@ -596,98 +531,106 @@
             } catch(error) {
                 console.error(error);
                 alert("수동 재정의 저장에 실패했습니다.");
-                // Revert state on failure if needed
                 state.allAnalysisData[analysisIndex].keyFrames[keyFrameIndex].manualOverride = undefined;
                 renderDetailedView(analysisId);
             }
         }
-
-        function setupWorker() {
-            const workerScript = document.getElementById('analyzer-worker').textContent;
-            const workerBlob = new Blob([workerScript], { type: 'application/javascript' });
-            state.analysisWorker = new Worker(URL.createObjectURL(workerBlob));
-            
-            let allResults = [];
-            let totalFiles = state.videoFiles.length;
-            let filesProcessed = 0;
-
-            state.analysisWorker.onmessage = async (event) => {
-                const { type, payload } = event.data;
-                
-                switch(type) {
-                    case 'start':
-                        appendLog(`> [START] '${payload.fileName}' 분석 (ID: ${payload.analysisId})`, 'text-cyan-400');
-                        dom.progressText.textContent = `[${filesProcessed + 1}/${totalFiles}] '${payload.fileName}' 분석 시작...`;
-                        break;
-                    
-                    case 'progress':
-                        dom.progressText.textContent = `[${filesProcessed + 1}/${totalFiles}] ${payload.text}`;
-                        dom.progressBar.value = payload.progress;
-                        break;
-                    
-                    case 'log':
-                        appendLog(payload.line, payload.isBlurry ? 'text-red-500' : 'text-green-500');
-                        break;
-
-                    case 'done':
-                        filesProcessed++;
-                        appendLog(`> [END] '${payload.fileName}' 분석 완료.`);
-                        allResults.push(payload);
-                        
-                        if (filesProcessed === totalFiles) {
-                            await finalizeAnalysis(allResults);
-                            allResults = [];
-                        }
-                        break;
-                }
-            };
-        }
         
-        async function startAnalysis() {
-            if (state.isAnalyzing) return;
-            if (state.videoFiles.length === 0) {
-                alert('먼저 분석할 영상 파일을 선택해주세요.');
-                return;
-            }
+        // --- Main Analysis Logic (runs on main thread) ---
+        dom.analyzeButton.addEventListener('click', async () => {
+            if (state.isAnalyzing || state.videoFiles.length === 0) return;
+            
             toggleAnalysisControls(true);
             dom.logContainer.innerHTML = '';
             dom.detailsSection.classList.add('hidden');
-            setupWorker();
             
-            for (const file of state.videoFiles) {
-                state.analysisWorker.postMessage({
-                    file: file,
-                    threshold: parseFloat(dom.thresholdSlider.value)
-                });
-            }
-        }
-        
-        async function finalizeAnalysis(results) {
-            dom.progressText.textContent = '분석 결과를 GitHub에 업로드 중...';
-            dom.progressBar.value = 0;
+            const allNewAnalyses = [];
+            const threshold = parseFloat(dom.thresholdSlider.value);
+            const analysisVideo = document.createElement('video');
+            analysisVideo.crossOrigin = 'anonymous';
+            const analysisCanvas = document.createElement('canvas');
+            const analysisCtx = analysisCanvas.getContext('2d', { willReadFrequently: true });
+            const cropCanvas = document.createElement('canvas');
+            const cropCtx = cropCanvas.getContext('2d');
+            analysisVideo.muted = true;
+            analysisVideo.preload = 'metadata';
 
-            const newAnalyses = [];
-            let uploadsCompleted = 0;
-            const totalUploads = results.reduce((sum, r) => sum + 1 + r.keyFramesToCapture.length, 0); // 1 log file + N keyframe pairs
-
-            for(const result of results) {
-                // 1. Upload Log file
-                await uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${result.analysisId}/log.txt`, result.logContent, false);
-                uploadsCompleted++;
-                dom.progressBar.value = (uploadsCompleted / totalUploads) * 100;
+            for (let i = 0; i < state.videoFiles.length; i++) {
+                const file = state.videoFiles[i];
+                const analysisId = `${file.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString()}`;
                 
-                // 2. Upload keyframes in parallel
-                const uploadPromises = result.keyFramesToCapture.map(async (kf) => {
-                    const cleanFileName = result.fileName.split('.').slice(0, -1).join('');
+                let liveLogContent = `[START] '${file.name}' 분석을 시작합니다. (ID: ${analysisId})\n`;
+                appendLog(`> [START] '${file.name}' 분석 (ID: ${analysisId})`, 'text-cyan-400');
+                
+                const fileURL = URL.createObjectURL(file);
+                analysisVideo.src = fileURL;
+
+                const duration = await new Promise(resolve => {
+                    analysisVideo.onloadedmetadata = () => resolve(analysisVideo.duration);
+                });
+
+                const frameScores = [];
+                let previousFrame = null;
+                const keyFramesToUpload = [];
+                const SAMPLING_INTERVAL_SECONDS = 0.5;
+                const totalSamples = Math.floor(duration / SAMPLING_INTERVAL_SECONDS);
+
+                for (let j = 0; j < totalSamples; j++) {
+                    const currentTime = j * SAMPLING_INTERVAL_SECONDS;
+                    dom.progressText.textContent = `분석 중... (${i + 1}/${state.videoFiles.length}) - ${file.name} (샘플 ${j + 1}/${totalSamples})`;
+                    dom.progressBar.value = (j / totalSamples) * 100;
+                    
+                    await new Promise(resolve => { analysisVideo.onseeked = () => resolve(); analysisVideo.currentTime = currentTime; });
+                    
+                    const detections = await faceapi.detectAllFaces(analysisVideo, new faceapi.TinyFaceDetectorOptions());
+                    const centermostFace = getCentermostFace(detections, analysisVideo.videoWidth, analysisVideo.videoHeight);
+                    
+                    let logLine;
+                    if (centermostFace) {
+                        analysisCanvas.width = analysisVideo.videoWidth;
+                        analysisCanvas.height = analysisVideo.videoHeight;
+                        analysisCtx.drawImage(analysisVideo, 0, 0, analysisCanvas.width, analysisCanvas.height);
+                        
+                        const { x, y, width, height } = centermostFace.box;
+                        const faceImageData = analysisCtx.getImageData(x, y, width, height);
+                        const score = calculateFocusScore(faceImageData);
+                        const isBlurry = score < threshold;
+
+                        logLine = `Time: ${currentTime.toFixed(2)}s | Score: ${score.toFixed(2)} | Status: ${isBlurry ? '흐림' : '선명'}`;
+                        appendLog(logLine, isBlurry ? 'text-red-500' : 'text-green-500');
+                        
+                        cropCanvas.width = width;
+                        cropCanvas.height = height;
+                        cropCtx.putImageData(faceImageData, 0, 0);
+                        const dataURL = cropCanvas.toDataURL('image/jpeg', 0.8);
+
+                        const currentFrame = { time: currentTime, score: score, isBlurry: isBlurry, dataURL: dataURL };
+                        frameScores.push(currentFrame);
+
+                        if (previousFrame && !previousFrame.isBlurry && currentFrame.isBlurry) {
+                            keyFramesToUpload.push({ time: currentFrame.time, sharpDataURL: previousFrame.dataURL, blurryDataURL: currentFrame.dataURL });
+                        }
+                        previousFrame = currentFrame;
+                    } else {
+                        logLine = `Time: ${currentTime.toFixed(2)}s | Status: 얼굴 미검출`;
+                        appendLog(logLine, 'text-gray-500');
+                        previousFrame = null;
+                    }
+                    liveLogContent += logLine + '\n';
+                }
+
+                await uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/log.txt`, liveLogContent, false);
+
+                const uploadedKeyFrames = [];
+                const uploadPromises = keyFramesToUpload.map(async (kf) => {
+                    const cleanFileName = file.name.split('.').slice(0, -1).join('');
                     const sharpFileName = `${cleanFileName}_${kf.time.toFixed(2)}s_sharp.jpeg`;
                     const blurryFileName = `${cleanFileName}_${kf.time.toFixed(2)}s_blurry.jpeg`;
 
-                    const sharpPromise = uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${result.analysisId}/${sharpFileName}`, kf.sharpDataURL, true);
-                    const blurryPromise = uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${result.analysisId}/${blurryFileName}`, kf.blurryDataURL, true);
+                    const sharpPromise = uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${sharpFileName}`, kf.sharpDataURL, true);
+                    const blurryPromise = uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${blurryFileName}`, kf.blurryDataURL, true);
 
                     const [sharpUrl, blurryUrl] = await Promise.all([sharpPromise, blurryPromise]);
-                    uploadsCompleted++;
-                    dom.progressBar.value = (uploadsCompleted / totalUploads) * 100;
 
                     if (sharpUrl && blurryUrl) {
                         return { time: kf.time, sharpUrl, blurryUrl };
@@ -695,69 +638,94 @@
                     return null;
                 });
                 
-                const uploadedKeyFrames = (await Promise.all(uploadPromises)).filter(Boolean);
+                const resolvedKeyFrames = (await Promise.all(uploadPromises)).filter(Boolean);
+                uploadedKeyFrames.push(...resolvedKeyFrames);
                 
-                newAnalyses.push({
-                    analysisId: result.analysisId, timestamp: result.timestamp, fileName: result.fileName,
-                    avgScore: result.avgScore, problematic: result.problematic, blurryPercentage: result.blurryPercentage,
-                    frameScores: result.frameScores, keyFrames: uploadedKeyFrames,
+                const detectedFrameCount = frameScores.length;
+                const totalScore = frameScores.reduce((sum, frame) => sum + frame.score, 0);
+                const blurryFrameCount = frameScores.filter(f => f.isBlurry).length;
+                const blurryPercentage = detectedFrameCount > 0 ? (blurryFrameCount / detectedFrameCount) * 100 : 0;
+                
+                allNewAnalyses.push({
+                    analysisId,
+                    timestamp: new Date().toISOString(),
+                    fileName: file.name,
+                    avgScore: detectedFrameCount > 0 ? totalScore / detectedFrameCount : 0,
+                    problematic: blurryPercentage > 10,
+                    blurryPercentage,
+                    frameScores: frameScores.map(d => ({time: d.time, score: d.score})),
+                    keyFrames: uploadedKeyFrames,
                 });
+
+                URL.revokeObjectURL(fileURL);
+                appendLog(`> [END] '${file.name}' 분석 완료.`);
             }
-            
-            dom.progressText.textContent = '최종 결과를 GitHub에 저장 중...';
-            const existingResultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsIndexFile);
-            let allResultsData = [];
-            let currentSha = null;
-            if (existingResultsFile && existingResultsFile.content) {
-                allResultsData = JSON.parse(decodeURIComponent(escape(atob(existingResultsFile.content))));
-                currentSha = existingResultsFile.sha;
+
+            if (allNewAnalyses.length > 0) {
+                dom.progressText.textContent = '최종 결과를 GitHub에 저장 중...';
+                const existingResultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsIndexFile);
+                let currentResults = [];
+                let currentSha = null;
+                if (existingResultsFile && existingResultsFile.content) {
+                    currentResults = JSON.parse(decodeURIComponent(escape(atob(existingResultsFile.content))));
+                    currentSha = existingResultsFile.sha;
+                }
+                
+                const newTotalResults = [...allNewAnalyses, ...currentResults];
+                await updateFileOnGitHub(GITHUB_CONFIG.resultsIndexFile, JSON.stringify(newTotalResults, null, 2), currentSha, `Add analysis for ${allNewAnalyses.length} file(s)`);
             }
-            
-            allResultsData.unshift(...newAnalyses);
-            
-            await updateFileOnGitHub(GITHUB_CONFIG.resultsIndexFile, JSON.stringify(allResultsData, null, 2), currentSha, `Add analysis for ${newAnalyses.length} file(s)`);
             
             toggleAnalysisControls(false);
-            dom.videoFilesInput.value = ''; // Reset file input
+            dom.videoFilesInput.value = '';
             state.videoFiles = [];
             updateAnalyzeButtonState();
-            
             await initializeAndLoadGitHubData();
             
-            // Auto-select the first new result
-            if (newAnalyses.length > 0) {
+            if (allNewAnalyses.length > 0) {
                  setTimeout(() => {
-                    const firstNewItem = dom.resultsListContainer.querySelector(`[data-analysis-id="${newAnalyses[0].analysisId}"]`);
+                    const firstNewItem = dom.resultsListContainer.querySelector(`[data-analysis-id="${allNewAnalyses[0].analysisId}"]`);
                     if(firstNewItem) firstNewItem.click();
                 }, 100);
             }
+        });
+
+        function setupModal() {
+            const openModal = () => dom.howItWorksModal.classList.remove('hidden');
+            const closeModal = () => dom.howItWorksModal.classList.add('hidden');
+
+            dom.howItWorksButton.addEventListener('click', openModal);
+            dom.closeModalButton.addEventListener('click', closeModal);
+            dom.howItWorksModal.addEventListener('click', (e) => {
+                if (e.target === dom.howItWorksModal) {
+                    closeModal();
+                }
+            });
         }
         
-        function cancelAnalysis() {
-            if (state.analysisWorker) {
-                state.analysisWorker.terminate();
-                state.analysisWorker = null;
+        async function loadFaceApiModels() {
+            try {
+                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+                state.modelsLoaded = true;
+                dom.modelStatus.textContent = '얼굴 인식 모델 로딩 완료!';
+                updateAnalyzeButtonState();
+            } catch (error) {
+                dom.modelStatus.textContent = '모델 로딩 실패. 새로고침 해주세요.';
+                console.error('FaceAPI model loading error:', error);
             }
-            toggleAnalysisControls(false);
-            dom.progressText.textContent = '분석이 중단되었습니다.';
-            appendLog('> [CANCEL] 사용자에 의해 분석이 중단되었습니다.', 'text-yellow-400');
         }
 
         // --- Initializer ---
         async function initializeApp() {
             if (GITHUB_CONFIG.token.includes('PLACEHOLDER')) {
-                dom.modelStatus.textContent = '오류: GitHub Actions를 통해 배포된 페이지에서 접속해야 합니다.';
+                dom.modelStatus.textContent = '오류: GitHub Token이 설정되지 않았습니다.';
                 dom.analyzeButton.disabled = true;
                 return;
             }
-            dom.modelStatus.textContent = '페이지 및 모델 초기화 중...';
-            // Simulating model loading message, actual loading is in worker.
-            dom.modelStatus.textContent = '얼굴 인식 모델 로딩 준비 완료!';
-            state.modelsLoaded = true;
-            updateAnalyzeButtonState();
+            
+            setupModal();
+            await loadFaceApiModels();
             await initializeAndLoadGitHubData();
 
-            // Event Listeners
             dom.videoFilesInput.addEventListener('change', (event) => {
                 state.videoFiles = Array.from(event.target.files);
                 updateAnalyzeButtonState();
@@ -765,8 +733,6 @@
             dom.thresholdSlider.addEventListener('input', (event) => {
                 dom.thresholdValueEl.textContent = event.target.value;
             });
-            dom.analyzeButton.addEventListener('click', startAnalysis);
-            dom.cancelButton.addEventListener('click', cancelAnalysis);
         }
 
         window.onload = initializeApp;
