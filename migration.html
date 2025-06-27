@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>데이터 마이그레이션 도구</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-8 max-w-3xl">
+        <div class="bg-white p-6 rounded-2xl shadow-lg">
+            <h1 class="text-2xl font-bold mb-4">데이터 마이그레이션 스크립트</h1>
+            <p class="text-gray-600 mb-4">이 도구는 기존의 <code class="bg-gray-200 p-1 rounded">data/results.json</code> 파일을 새로운 청크(chunk) 파일 구조로 마이그레이션합니다. <strong>이 작업은 한 번만 실행해야 합니다.</strong></p>
+            
+            <div class="space-y-4">
+                <div>
+                    <label for="github-pat" class="block text-sm font-medium text-gray-700">GitHub Personal Access Token (PAT)</label>
+                    <input type="password" id="github-pat" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="repo 권한이 있는 PAT를 입력하세요">
+                </div>
+                 <button id="start-migration" class="w-full bg-blue-600 text-white font-bold py-3 px-12 rounded-full hover:bg-blue-700 transition duration-300">
+                    마이그레이션 시작
+                </button>
+            </div>
+
+            <div class="mt-6">
+                 <h2 class="text-xl font-semibold mb-4 border-b pb-2">실행 로그</h2>
+                <div id="log-container" class="h-96 overflow-y-auto bg-gray-900 text-white font-mono rounded-lg p-4 border text-sm">
+                    <p id="log-placeholder" class="text-gray-400">대기 중...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const patInput = document.getElementById('github-pat');
+        const startButton = document.getElementById('start-migration');
+        const logContainer = document.getElementById('log-container');
+
+        const GITHUB_CONFIG = {
+            owner: 'garimto81', 
+            repo: 'frame',
+            legacyPath: 'data/results.json',
+            indexPath: 'data/index.json',
+            chunkDir: 'data/results/'
+        };
+        const CHUNK_SIZE_LIMIT = 800 * 1024; // 800 KB
+
+        function appendLog(message, color = 'text-gray-400') {
+            if (logContainer.querySelector("#log-placeholder")) {
+                logContainer.innerHTML = '';
+            }
+            const logEntry = document.createElement('div');
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logEntry.className = color;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        async function apiCall(url, options = {}) {
+            const token = patInput.value;
+            if (!token) {
+                throw new Error("GitHub PAT가 필요합니다.");
+            }
+            const headers = {
+                'Authorization': `token ${token}`,
+                'Accept': 'application/vnd.github.v3+json',
+                ...options.headers,
+            };
+            const response = await fetch(url, { ...options, headers });
+            if (!response.ok) {
+                 const errorData = await response.json().catch(() => ({ message: response.statusText }));
+                 throw new Error(`GitHub API Error (${response.status}): ${errorData.message}`);
+            }
+            // For 204 No Content response
+            if (response.status === 204) {
+                return null;
+            }
+            return response.json();
+        }
+
+        async function getFile(path) {
+            const url = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${path}`;
+            try {
+                return await apiCall(url);
+            } catch (error) {
+                if (error.message.includes("404")) return null;
+                throw error;
+            }
+        }
+        
+        async function createFile(path, content, message) {
+            const url = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${path}`;
+            const body = JSON.stringify({
+                message,
+                content: btoa(unescape(encodeURIComponent(content))),
+            });
+            return apiCall(url, { method: 'PUT', body });
+        }
+
+        async function renameFile(from, to, sha, message) {
+            // Renaming is done by creating a new file and deleting the old one.
+            // This is not directly supported by the contents API, so we will skip renaming for simplicity
+            // and just log the successful migration. The user can manually delete or rename the old file.
+             appendLog(`[INFO] 파일 이름 변경은 수동으로 진행해주세요: '${from}' -> '${from}.bak'`, 'text-yellow-400');
+        }
+
+        startButton.addEventListener('click', async () => {
+            startButton.disabled = true;
+            startButton.textContent = '마이그레이션 진행 중...';
+            appendLog('마이그레이션을 시작합니다.', 'text-cyan-400');
+
+            try {
+                appendLog(`1. 기존 파일 '${GITHUB_CONFIG.legacyPath}' 확인 중...`);
+                const legacyFile = await getFile(GITHUB_CONFIG.legacyPath);
+                if (!legacyFile) {
+                    throw new Error(`'${GITHUB_CONFIG.legacyPath}' 파일을 찾을 수 없습니다. 마이그레이션이 필요하지 않을 수 있습니다.`);
+                }
+                appendLog('기존 파일 확인 완료.', 'text-green-500');
+                
+                let legacyContent;
+                if (legacyFile.content) {
+                     legacyContent = decodeURIComponent(escape(atob(legacyFile.content)));
+                } else if (legacyFile.download_url) {
+                    appendLog('파일이 커서 download_url에서 내용을 가져옵니다.', 'text-yellow-400');
+                    const response = await fetch(legacyFile.download_url);
+                    legacyContent = await response.text();
+                } else {
+                     throw new Error('파일 내용은 없으나 download_url도 찾을 수 없음');
+                }
+
+                appendLog('2. 기존 데이터 파싱 중...');
+                const dataToMigrate = JSON.parse(legacyContent);
+                const dataAsObject = Array.isArray(dataToMigrate) ? dataToMigrate.reduce((acc, item) => { if(item && item.analysisId) acc[item.analysisId] = item; return acc; }, {}) : dataToMigrate;
+                appendLog(`파싱 완료. 총 ${Object.keys(dataAsObject).length}개 기록 발견.`, 'text-green-500');
+
+                appendLog('3. 데이터를 청크 파일로 분할 및 업로드 시작...');
+                const allEntries = Object.entries(dataAsObject);
+                let currentChunk = {};
+                let currentChunkSize = 0;
+                let chunkIndex = 1;
+                const newChunkNames = [];
+                const uploadPromises = [];
+
+                for (const [key, value] of allEntries) {
+                    const entryString = JSON.stringify({ [key]: value });
+                    if (currentChunkSize + entryString.length > CHUNK_SIZE_LIMIT && Object.keys(currentChunk).length > 0) {
+                        const chunkName = `results_${chunkIndex++}.json`;
+                        const chunkContent = JSON.stringify(currentChunk, null, 2);
+                        uploadPromises.push(createFile(`${GITHUB_CONFIG.chunkDir}${chunkName}`, chunkContent, `Migrate data chunk ${chunkIndex - 1}`));
+                        newChunkNames.push(chunkName);
+                        appendLog(`청크 ${chunkIndex - 1} 생성 완료. (${Object.keys(currentChunk).length}개 항목)`);
+                        currentChunk = {};
+                        currentChunkSize = 0;
+                    }
+                    currentChunk[key] = value;
+                    currentChunkSize += entryString.length;
+                }
+
+                if (Object.keys(currentChunk).length > 0) {
+                     const chunkName = `results_${chunkIndex}.json`;
+                     const chunkContent = JSON.stringify(currentChunk, null, 2);
+                     uploadPromises.push(createFile(`${GITHUB_CONFIG.chunkDir}${chunkName}`, chunkContent, `Migrate data chunk ${chunkIndex}`));
+                     newChunkNames.push(chunkName);
+                     appendLog(`마지막 청크 ${chunkIndex} 생성 완료. (${Object.keys(currentChunk).length}개 항목)`);
+                }
+
+                await Promise.all(uploadPromises);
+                appendLog('모든 청크 파일 업로드 완료.', 'text-green-500');
+
+                appendLog(`4. 새로운 인덱스 파일 '${GITHUB_CONFIG.indexPath}' 생성 중...`);
+                const indexContent = JSON.stringify(newChunkNames, null, 2);
+                await createFile(GITHUB_CONFIG.indexPath, indexContent, 'Create index.json from migration');
+                appendLog('인덱스 파일 생성 완료.', 'text-green-500');
+                
+                appendLog('5. 기존 파일 백업 안내.');
+                await renameFile(GITHUB_CONFIG.legacyPath, `${GITHUB_CONFIG.legacyPath}.bak`, legacyFile.sha, 'Backup old data file');
+
+                appendLog('마이그레이션이 성공적으로 완료되었습니다!', 'text-green-500 font-bold');
+
+            } catch(error) {
+                appendLog(`오류 발생: ${error.message}`, 'text-red-500');
+                console.error(error);
+            } finally {
+                startButton.disabled = false;
+                startButton.textContent = '마이그레이션 시작';
+            }
+        });
+    </script>
+</body>
+</html>
