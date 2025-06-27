@@ -16,19 +16,22 @@
         .result-item:hover { background-color: #f0f9ff; }
         .result-item.selected { background-color: #dbeafe; }
         #chart-tooltip {
-            position: absolute;
+            position: fixed; /* Use fixed to overlay everything */
             background: #ffffff;
             border: 1px solid #e5e7eb;
             color: black;
             border-radius: 0.75rem;
             padding: 1rem;
-            pointer-events: none;
+            pointer-events: none; /* Let clicks pass through initially */
             opacity: 0;
             transition: opacity 0.2s ease-in-out;
-            transform: translate(-50%, -110%);
             z-index: 50;
-            width: 40rem;
-            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            width: 44rem;
+            max-width: 90vw;
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        }
+        #chart-tooltip.active {
+            pointer-events: auto; /* Allow interaction when visible */
         }
     </style>
 </head>
@@ -78,7 +81,7 @@
             <div id="details-section" class="hidden space-y-8">
                 <div class="bg-white p-6 rounded-2xl shadow-lg">
                     <div class="flex justify-between items-center mb-4 border-b pb-2">
-                        <h2 class="text-xl font-semibold">3. 상세 분석 그래프</h2>
+                        <h2 id="details-title" class="text-xl font-semibold">상세 분석</h2>
                         <button id="back-to-list-button" class="bg-gray-200 text-gray-700 px-4 py-1 rounded-full text-sm font-medium hover:bg-gray-300">← 전체 목록으로</button>
                     </div>
                     <p class="text-sm text-gray-600 mb-2 -mt-2">그래프 위 빨간 점에 마우스를 올리면 주요 프레임을 확인할 수 있습니다.</p>
@@ -87,8 +90,8 @@
                     </div>
                 </div>
                 <div class="bg-white p-6 rounded-2xl shadow-lg">
-                    <h2 class="text-xl font-semibold mb-4 border-b pb-2">4. 분석 로그</h2>
-                    <div id="log-container" class="h-96 overflow-y-auto bg-gray-900 text-white font-mono rounded-lg p-4 border text-sm"></div>
+                    <h2 class="text-xl font-semibold mb-4 border-b pb-2">분석 로그</h2>
+                    <div id="log-container" class="h-96 overflow-y-auto bg-gray-900 text-white font-mono rounded-lg p-4 border text-sm"><p id="log-placeholder" class="text-gray-400 text-center py-4">분석 기록을 선택하면 로그가 표시됩니다.</p></div>
                 </div>
             </div>
         </div>
@@ -109,7 +112,7 @@
         const resultsListPlaceholder = document.getElementById('results-list-placeholder');
         const paginationControls = document.getElementById('pagination-controls');
         const detailsSection = document.getElementById('details-section');
-        const chartPlaceholder = document.getElementById('chart-placeholder');
+        const detailsTitle = document.getElementById('details-title');
         const detailChartCanvas = document.getElementById('detail-chart');
         const logContainer = document.getElementById('log-container');
         const chartTooltip = document.getElementById('chart-tooltip');
@@ -206,6 +209,14 @@
 
         function updateAnalyzeButtonState() { analyzeButton.disabled = videoFiles.length === 0 || !modelsLoaded; }
         
+        function appendLog(message, colorClass = 'text-gray-400') {
+            const logEntry = document.createElement('div');
+            logEntry.textContent = `> ${message}`;
+            logEntry.className = colorClass;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
         const externalTooltipHandler = (context) => {
             const {chart, tooltip} = context;
             if (tooltip.opacity === 0) { chartTooltip.style.opacity = 0; chartTooltip.classList.add('hidden'); return; }
@@ -223,7 +234,7 @@
                 chartTooltip.style.opacity = 1;
                 chartTooltip.classList.remove('hidden');
                 
-                const { offsetLeft, offsetTop } = chart.canvas.parentElement;
+                const { offsetLeft, offsetTop } = chart.canvas;
                 chartTooltip.style.left = offsetLeft + tooltip.caretX + 'px';
                 chartTooltip.style.top = offsetTop + tooltip.caretY + 'px';
                 
@@ -280,11 +291,11 @@
 
         async function renderDetailedView(analysisId) {
             detailsSection.classList.remove('hidden');
-            chartPlaceholder.classList.add('hidden');
             logContainer.innerHTML = '<p class="text-gray-400 text-center py-4">로그를 불러오는 중...</p>';
             
             const resultData = allAnalysisData.find(d => d.analysisId === analysisId);
             if (!resultData) return;
+            detailsTitle.textContent = `상세 분석: ${resultData.fileName}`;
 
             if (detailChart) { detailChart.destroy(); }
             detailChartCanvas.dataset.analysisId = analysisId;
@@ -312,15 +323,7 @@
             if (logFile && logFile.content) {
                 const logContent = decodeURIComponent(escape(atob(logFile.content)));
                 logContainer.innerHTML = '';
-                logContent.split('\n').forEach(line => {
-                    const logEntry = document.createElement('div');
-                    logEntry.textContent = line;
-                    if(line.includes('흐림')) logEntry.className = 'text-red-500';
-                    else if(line.includes('선명')) logEntry.className = 'text-green-500';
-                    else if(line.startsWith('> [START]')) logEntry.className = 'text-cyan-400';
-                    else logEntry.className = 'text-gray-400';
-                    logContainer.appendChild(logEntry);
-                });
+                logContent.split('\n').forEach(line => appendLog(line));
             } else {
                 logContainer.innerHTML = '<p class="text-gray-400 text-center py-4">저장된 로그 파일을 찾을 수 없습니다.</p>';
             }
@@ -348,11 +351,11 @@
             resultsListContainer.querySelectorAll('.result-item').forEach(r => r.classList.remove('selected'));
         });
 
-        analyzeButton.addEventListener('click', async () => { /* ... */
+        analyzeButton.addEventListener('click', async () => {
             if (videoFiles.length === 0) { alert('먼저 분석할 영상 파일을 선택해주세요.'); return; }
             loadingIndicator.style.display = 'flex';
             analyzeButton.disabled = true;
-            detailsSection.classList.add('hidden');
+            logContainer.innerHTML = '';
             
             const threshold = parseFloat(thresholdSlider.value);
             const analysisVideo = document.createElement('video');
@@ -368,6 +371,9 @@
                 const file = videoFiles[i];
                 const cleanFileNameForId = file.name.replace(/[^a-zA-Z0-9]/g, '_');
                 const analysisId = `${cleanFileNameForId}_${new Date().toISOString()}`;
+                
+                let liveLogContent = `[START] '${file.name}' 분석을 시작합니다. (ID: ${analysisId})\n`;
+                appendLog(`> [START] '${file.name}' 분석 (ID: ${analysisId})`);
                 
                 const fileURL = URL.createObjectURL(file);
                 analysisVideo.src = fileURL;
@@ -388,6 +394,7 @@
                     const detections = await faceapi.detectAllFaces(analysisVideo, new faceapi.TinyFaceDetectorOptions());
                     const centermostFace = getCentermostFace(detections, analysisVideo.videoWidth, analysisVideo.videoHeight);
                     
+                    let logLine;
                     if (centermostFace) {
                         analysisCanvas.width = analysisVideo.videoWidth; analysisCanvas.height = analysisVideo.videoHeight;
                         analysisCtx.drawImage(analysisVideo, 0, 0, analysisCanvas.width, analysisCanvas.height);
@@ -396,6 +403,9 @@
                         const faceImageData = analysisCtx.getImageData(x, y, width, height);
                         const score = calculateFocusScore(faceImageData);
                         const isBlurry = score < threshold;
+
+                        logLine = `Time: ${currentTime.toFixed(2)}s | Score: ${score.toFixed(2)} | Status: ${isBlurry ? '흐림' : '선명'}`;
+                        appendLog(logLine, isBlurry ? 'text-red-500' : 'text-green-500');
                         
                         cropCanvas.width = width; cropCanvas.height = height;
                         cropCtx.putImageData(faceImageData, 0, 0);
@@ -408,7 +418,12 @@
                             keyFramesToUpload.push({ time: currentFrame.time, sharpDataURL: previousFrame.dataURL, blurryDataURL: currentFrame.dataURL });
                         }
                         previousFrame = currentFrame;
-                    } else { previousFrame = null; }
+                    } else {
+                        logLine = `Time: ${currentTime.toFixed(2)}s | Status: 얼굴 미검출`;
+                        appendLog(logLine, 'text-gray-500');
+                        previousFrame = null;
+                    }
+                    liveLogContent += logLine + '\n';
                 }
                 
                 const detectedFrameCount = frameScores.length;
@@ -416,6 +431,9 @@
                 const blurryFrameCount = frameScores.filter(f => f.isBlurry).length;
                 const blurryPercentage = detectedFrameCount > 0 ? (blurryFrameCount / detectedFrameCount) * 100 : 0;
                 
+                // **REFACTORED WORKFLOW**
+                // 1. Upload assets first (log and images)
+                await uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/log.txt`, liveLogContent, false);
                 const uploadedKeyFrames = [];
                 for(const kf of keyFramesToUpload) {
                     const cleanFileName = file.name.split('.').slice(0, -1).join('');
@@ -426,6 +444,7 @@
                     if (sharpUrl && blurryUrl) { uploadedKeyFrames.push({time: kf.time, sharpUrl, blurryUrl}); }
                 }
                 
+                // 2. Create the final result object with all data
                 const newResult = {
                     analysisId: analysisId, timestamp: new Date().toISOString(), fileName: file.name,
                     avgScore: detectedFrameCount > 0 ? totalScore / detectedFrameCount : 0,
@@ -433,6 +452,7 @@
                     frameScores: frameScores.map(d => ({time: d.time, score: d.score})), keyFrames: uploadedKeyFrames
                 };
 
+                // 3. Update the main index file
                 const existingResultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsIndexFile);
                 let allResults = []; let currentSha = null;
                 if (existingResultsFile && existingResultsFile.content) {
