@@ -34,9 +34,12 @@
 <body class="bg-gray-100 text-gray-800">
 
     <div class="container mx-auto p-4 md:p-8 max-w-7xl">
-        <header class="text-center mb-8">
+        <header class="relative text-center mb-8 py-4">
             <h1 class="text-2xl md:text-3xl font-bold text-gray-900">포커스 이슈 탐지기 (GitHub 연동)</h1>
             <p id="model-status" class="text-sm text-yellow-600 mt-1">인식 모델 로딩 중...</p>
+            <div class="absolute top-4 right-4">
+                <a href="how-it-works.html" target="_blank" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm font-medium hover:bg-gray-300 transition">작동 방식 보기</a>
+            </div>
         </header>
         
         <div class="space-y-8">
@@ -64,7 +67,7 @@
                 </div>
             </div>
 
-            <!-- Results List & Details Section -->
+            <!-- Results List -->
             <div class="bg-white p-6 rounded-2xl shadow-lg">
                  <h2 class="text-xl font-semibold mb-4 border-b pb-2">2. 분석 기록</h2>
                 <div id="results-list-container" class="space-y-1">
@@ -73,6 +76,7 @@
                 <div id="pagination-controls" class="pt-4 mt-4 border-t flex justify-center gap-2"></div>
             </div>
 
+             <!-- Details Section (hidden by default) -->
             <div id="details-section" class="hidden space-y-8">
                 <div class="bg-white p-6 rounded-2xl shadow-lg">
                      <h2 id="details-title" class="text-xl font-semibold mb-4 border-b pb-2">3. 상세 분석 그래프</h2>
@@ -87,11 +91,10 @@
                         <p id="key-frames-placeholder" class="text-gray-500 text-center py-4">이 분석에는 감지된 문제 프레임이 없거나, 아직 기록이 선택되지 않았습니다.</p>
                     </div>
                 </div>
-            </div>
-            
-            <div class="bg-white p-6 rounded-2xl shadow-lg">
-                <h2 class="text-xl font-semibold mb-4 border-b pb-2">실시간 분석 로그</h2>
-                <div id="log-container" class="h-96 overflow-y-auto bg-gray-900 text-white font-mono rounded-lg p-4 border text-sm"><p id="log-placeholder" class="text-gray-400 text-center py-4">분석을 시작하거나 과거 기록을 선택하면 로그가 표시됩니다.</p></div>
+                <div class="bg-white p-6 rounded-2xl shadow-lg">
+                    <h2 class="text-xl font-semibold mb-4 border-b pb-2">5. 분석 로그</h2>
+                    <div id="log-container" class="h-96 overflow-y-auto bg-gray-900 text-white font-mono rounded-lg p-4 border text-sm"><p id="log-placeholder" class="text-gray-400 text-center py-4">분석 기록을 선택하면 로그가 표시됩니다.</p></div>
+                </div>
             </div>
         </div>
     </main>
@@ -510,4 +513,4 @@
 
     </script>
 </body>
-</html>
+</ht
