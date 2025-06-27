@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>포커스 이슈 탐지기 - Ver 0.15</title>
+    <title>포커스 이슈 탐지기 - Ver 0.17</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -102,7 +102,7 @@
     <!-- Chart Tooltip -->
     <div id="chart-tooltip" class="hidden"></div>
     <script>
-        const APP_VERSION = "0.15";
+        const APP_VERSION = "0.17";
         document.title = `포커스 이슈 탐지기 - Ver ${APP_VERSION}`;
         document.getElementById('version-display').textContent = `Ver ${APP_VERSION}`;
         
@@ -322,7 +322,7 @@
 
             if (keyFrameData) {
                 const isOverridden = keyFrameData.manualOverride === 'ok';
-                chartTooltip.innerHTML = `<div class="flex gap-4 p-1"><div class="text-center w-1/2"><p class="text-sm font-semibold text-green-400 mb-1">선명</p><img src="${keyFrameData.sharpUrl}" class="w-full h-auto object-contain rounded"></div><div class="text-center w-1/2"><p class="text-sm font-semibold ${isOverridden ? 'text-green-400' : 'text-red-400'} mb-1">${isOverridden ? '흐림 (수동OK)' : '흐림'}</p><img src="${keyFrameData.blurryUrl}" class="w-full h-auto object-contain rounded"></div></div>`;
+                chartTooltip.innerHTML = `<div class="flex gap-4 p-1"><div class="text-center w-1/2"><p class="text-sm font-semibold text-green-400 mb-1">이전 프레임</p><img src="${keyFrameData.sharpUrl}" class="w-full h-auto object-contain rounded"></div><div class="text-center w-1/2"><p class="text-sm font-semibold ${isOverridden ? 'text-green-400' : 'text-red-400'} mb-1">${isOverridden ? '문제 프레임 (수동OK)' : '문제 프레임'}</p><img src="${keyFrameData.blurryUrl}" class="w-full h-auto object-contain rounded"></div></div>`;
                 
                 chartTooltip.style.opacity = 1;
                 chartTooltip.classList.remove('hidden');
@@ -452,6 +452,9 @@
 
             resultData.keyFrames.forEach(data => {
                 const isOverridden = data.manualOverride === 'ok';
+                const sharpDimsText = data.sharpDims ? `${data.sharpDims.w}x${data.sharpDims.h}` : 'N/A';
+                const blurryDimsText = data.blurryDims ? `${data.blurryDims.w}x${data.blurryDims.h}` : 'N/A';
+
                 const pairContainer = document.createElement('div');
                 pairContainer.className = 'p-4 bg-gray-50 rounded-lg shadow-inner border space-y-4';
                 pairContainer.innerHTML = `
@@ -463,12 +466,14 @@
                         <div class="flex gap-4">
                             <div class="flex-1 text-center">
                                 <p class="text-xs font-semibold text-green-600 mb-1">이전 프레임</p>
+                                <p class="text-xs text-gray-500 -mt-1 mb-1">${sharpDimsText}</p>
                                 <div class="h-32 flex items-center justify-center bg-gray-200 rounded-md">
                                     <img src="${data.sharpUrl}" class="max-h-full max-w-full object-contain" loading="lazy">
                                 </div>
                             </div>
                             <div class="flex-1 text-center">
                                 <p class="text-xs font-semibold ${isOverridden ? 'text-green-600' : 'text-red-600'} mb-1">${isOverridden ? '문제 프레임 (수동OK)' : '문제 프레임'}</p>
+                                 <p class="text-xs text-gray-500 -mt-1 mb-1">${blurryDimsText}</p>
                                 <div class="h-32 flex items-center justify-center bg-gray-200 rounded-md">
                                     <img src="${data.blurryUrl}" class="max-h-full max-w-full object-contain" loading="lazy">
                                 </div>
@@ -489,29 +494,47 @@
                         </div>
                     </div>
 
-                    <button data-analysis-id="${resultData.analysisId}" data-time="${data.time}" class="manual-override-button w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm ${isOverridden ? 'hidden' : ''}">이 프레임은 문제 없음 (녹색으로 변경)</button>
+                    <button data-analysis-id="${resultData.analysisId}" data-time="${data.time}" data-action="ok" class="manual-override-button w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm ${isOverridden ? 'hidden' : ''}">이 프레임은 문제 없음 (녹색으로 변경)</button>
+                    <button data-analysis-id="${resultData.analysisId}" data-time="${data.time}" data-action="problem" class="manual-override-button w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm ${!isOverridden ? 'hidden' : ''}">문제 프레임으로 되돌리기 (빨간색)</button>
                 `;
                 keyFramesContainer.appendChild(pairContainer);
             });
 
             keyFramesContainer.querySelectorAll('.manual-override-button').forEach(button => {
                 button.addEventListener('click', (e) => {
-                    const { analysisId, time } = e.currentTarget.dataset;
-                    handleManualCorrection(analysisId, parseFloat(time));
+                    const { analysisId, time, action } = e.currentTarget.dataset;
+                    handleManualCorrection(analysisId, parseFloat(time), action);
                 });
             });
         }
 
-        async function handleManualCorrection(analysisId, time) {
+        async function handleManualCorrection(analysisId, time, action) {
             if (!allAnalysisData[analysisId]) return;
-            const keyFrameIndex = allAnalysisData[analysisId].keyFrames.findIndex(kf => kf.time === time);
-            if (keyFrameIndex === -1) return;
+            const keyFrame = allAnalysisData[analysisId].keyFrames.find(kf => kf.time === time);
+            if (!keyFrame) return;
 
-            allAnalysisData[analysisId].keyFrames[keyFrameIndex].manualOverride = 'ok';
+            if (action === 'ok') {
+                keyFrame.manualOverride = 'ok';
+            } else { // action === 'problem'
+                delete keyFrame.manualOverride;
+            }
+
             renderDetailedView(analysisId);
 
-            const existingResultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsIndexFile);
-            await createOrUpdateFileOnGitHub(GITHUB_CONFIG.resultsIndexFile, JSON.stringify(allAnalysisData, null, 2), existingResultsFile.sha, `Update manual override for ${analysisId}`);
+            try {
+                const existingResultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsIndexFile);
+                await createOrUpdateFileOnGitHub(GITHUB_CONFIG.resultsIndexFile, JSON.stringify(allAnalysisData, null, 2), existingResultsFile.sha, `Update manual override for ${analysisId}`);
+            } catch (err) {
+                 console.error("수동 보정 저장 실패:", err);
+                 // Revert on failure
+                if (action === 'ok') {
+                     delete keyFrame.manualOverride;
+                } else {
+                    keyFrame.manualOverride = 'ok';
+                }
+                renderDetailedView(analysisId);
+                alert("수동 보정 저장에 실패했습니다.");
+            }
         }
 
         // --- Event Handlers & Main Analysis Logic ---
@@ -549,7 +572,7 @@
                 const duration = await new Promise(resolve => { analysisVideo.onloadedmetadata = () => resolve(analysisVideo.duration); });
                 
                 const frameScores = [];
-                let previousFrameState = { status: '미검출', dataURL: null };
+                let previousFrameState = { status: '미검출', dataURL: null, width: 0, height: 0 };
                 const keyFramesToUpload = [];
                 const SAMPLING_INTERVAL_SECONDS = 0.5;
                 const totalSamples = Math.floor(duration / SAMPLING_INTERVAL_SECONDS);
@@ -565,11 +588,13 @@
                     let logLine = `Time: ${currentTime.toFixed(2)}s |`;
                     let currentStatus = '미검출';
                     let currentDataURL = null;
+                    let currentDims = { w: 0, h: 0 };
                     
+                    analysisCanvas.width = analysisVideo.videoWidth; 
+                    analysisCanvas.height = analysisVideo.videoHeight;
+                    analysisCtx.drawImage(analysisVideo, 0, 0, analysisCanvas.width, analysisCanvas.height);
+
                     if (centermostFace) {
-                        analysisCanvas.width = analysisVideo.videoWidth; analysisCanvas.height = analysisVideo.videoHeight;
-                        analysisCtx.drawImage(analysisVideo, 0, 0, analysisCanvas.width, analysisCanvas.height);
-                        
                         const { x, y, width, height } = centermostFace.box;
                         const faceImageData = analysisCtx.getImageData(x, y, width, height);
                         const score = calculateFocusScore(faceImageData);
@@ -581,27 +606,27 @@
                         cropCanvas.width = width; cropCanvas.height = height;
                         cropCtx.putImageData(faceImageData, 0, 0);
                         currentDataURL = cropCanvas.toDataURL('image/jpeg', 0.8);
+                        currentDims = { w: width, h: height };
 
                         frameScores.push({ time: currentTime, score });
                     } else {
                         logLine += ' Status: 미검출';
-                        analysisCanvas.width = analysisVideo.videoWidth; analysisCanvas.height = analysisVideo.videoHeight;
-                        analysisCtx.drawImage(analysisVideo, 0, 0, analysisCanvas.width, analysisCanvas.height);
                         currentDataURL = analysisCanvas.toDataURL('image/jpeg', 0.8);
+                        currentDims = { w: analysisCanvas.width, h: analysisCanvas.height };
                     }
 
-                    // Problem detection logic
                     if (currentStatus === '흐림' && (previousFrameState.status === '선명' || previousFrameState.status === '미검출')) {
                         logLine += ` (문제 감지: ${previousFrameState.status} → 흐림)`;
                         keyFramesToUpload.push({
                             time: currentTime,
                             sharpDataURL: previousFrameState.dataURL,
-                            blurryDataURL: currentDataURL
+                            blurryDataURL: currentDataURL,
+                            sharpDims: { w: previousFrameState.width, h: previousFrameState.height },
+                            blurryDims: currentDims
                         });
-                        // Reset previous state to prevent multiple triggers
-                        previousFrameState = { status: '흐림', dataURL: currentDataURL }; 
+                        previousFrameState = { status: '흐림', dataURL: currentDataURL, ...currentDims }; 
                     } else {
-                         previousFrameState = { status: currentStatus, dataURL: currentDataURL };
+                         previousFrameState = { status: currentStatus, dataURL: currentDataURL, ...currentDims };
                     }
 
                     appendLog(logLine);
@@ -621,7 +646,15 @@
                     const blurryFileName = `${cleanFileName}_${kf.time.toFixed(2)}s_blurry.jpeg`;
                     const sharpUrl = await uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${sharpFileName}`, kf.sharpDataURL, true);
                     const blurryUrl = await uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${blurryFileName}`, kf.blurryDataURL, true);
-                    if (sharpUrl && blurryUrl) { uploadedKeyFrames.push({time: kf.time, sharpUrl, blurryUrl}); }
+                    if (sharpUrl && blurryUrl) { 
+                        uploadedKeyFrames.push({
+                            time: kf.time, 
+                            sharpUrl, 
+                            blurryUrl,
+                            sharpDims: kf.sharpDims,
+                            blurryDims: kf.blurryDims
+                        }); 
+                    }
                 }
                 
                 allAnalysisData[analysisId] = {
