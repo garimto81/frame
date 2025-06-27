@@ -6,10 +6,8 @@
     <title>포커스 이슈 탐지기 (GitHub 연동)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
-    <!-- Chart.js for graphs -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-    <!-- Face Recognition Library -->
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <style>
         body { font-family: 'Noto Sans KR', sans-serif; }
@@ -19,29 +17,32 @@
         .result-item.selected { background-color: #dbeafe; border-left-width: 4px; border-color: #3b82f6; }
         #chart-tooltip {
             position: absolute;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            border-radius: 0.5rem;
-            padding: 0.5rem;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            color: black;
+            border-radius: 0.75rem;
+            padding: 1rem;
             pointer-events: none;
             opacity: 0;
-            transition: opacity 0.1s ease;
-            transform: translate(-50%, -110%);
+            transition: opacity 0.2s ease-in-out;
+            transform: translate(-50%, -50%);
             z-index: 50;
+            width: 40rem; /* Increased size */
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
         }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800 h-screen flex flex-col">
 
-    <header class="text-center py-4 border-b bg-white shadow-sm">
+    <header class="text-center py-4 border-b bg-white shadow-sm flex-shrink-0">
         <h1 class="text-2xl md:text-3xl font-bold text-gray-900">포커스 이슈 탐지기 (GitHub 연동)</h1>
         <p id="model-status" class="text-sm text-yellow-600 mt-1">인식 모델 로딩 중...</p>
     </header>
     
-    <div class="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-4 p-4 overflow-hidden">
+    <main class="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-4 p-4 overflow-hidden">
         <!-- Left Panel: Controls & Results List -->
         <div class="lg:col-span-1 flex flex-col gap-4 overflow-hidden">
-            <div class="bg-white p-6 rounded-2xl shadow-lg">
+            <div class="bg-white p-6 rounded-2xl shadow-lg flex-shrink-0">
                 <h2 class="text-xl font-semibold mb-4 border-b pb-2">1. 제어 패널</h2>
                 <div class="space-y-4">
                     <div>
@@ -66,31 +67,26 @@
                 <div id="results-list-container" class="flex-grow overflow-y-auto -mr-2 pr-2">
                     <p id="results-list-placeholder" class="text-gray-500 text-center py-4">GitHub 정보 확인 중...</p>
                 </div>
+                <div id="pagination-controls" class="pt-4 border-t flex justify-center gap-2"></div>
             </div>
         </div>
 
-        <!-- Right Panel: Details & Logs -->
-        <div class="lg:col-span-2 flex flex-col gap-4 overflow-hidden">
-            <div class="bg-white p-6 rounded-2xl shadow-lg flex-grow flex flex-col overflow-hidden">
-                <h2 class="text-xl font-semibold mb-4 border-b pb-2">3. 상세 분석 그래프</h2>
-                 <p class="text-sm text-gray-600 mb-2 -mt-2">그래프 위 빨간 점에 마우스를 올리면 주요 프레임을 확인할 수 있습니다.</p>
-                <div id="chart-container" class="relative flex-grow min-h-0">
+        <!-- Right Panel: Details -->
+        <div id="right-panel" class="lg:col-span-2 flex flex-col gap-4 overflow-hidden">
+             <div class="bg-white p-6 rounded-2xl shadow-lg flex-grow flex flex-col overflow-hidden">
+                <h2 class="text-xl font-semibold mb-4 border-b pb-2">3. 상세 분석</h2>
+                <div id="details-container" class="relative flex-grow min-h-0">
                     <p id="chart-placeholder" class="text-gray-500 text-center absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">왼쪽 목록에서 분석 기록을 선택하세요.</p>
                     <canvas id="detail-chart"></canvas>
                 </div>
             </div>
-             <div class="bg-white p-6 rounded-2xl shadow-lg flex-grow flex flex-col overflow-hidden">
-                <h2 class="text-xl font-semibold mb-4 border-b pb-2">4. 분석 로그</h2>
-                <div id="log-container" class="h-full overflow-y-auto bg-gray-900 text-white font-mono rounded-lg p-4 border text-sm"><p id="log-placeholder" class="text-gray-400 text-center py-4">분석을 시작하거나 과거 기록을 선택하세요.</p></div>
-            </div>
         </div>
-    </div>
+    </main>
 
     <!-- Chart Tooltip -->
     <div id="chart-tooltip" class="hidden"></div>
-
     <script>
-        // --- DOM Element References ---
+        // --- DOM References ---
         const videoFilesInput = document.getElementById('video-files-input');
         const thresholdSlider = document.getElementById('threshold-slider');
         const thresholdValueEl = document.getElementById('threshold-value');
@@ -98,10 +94,9 @@
         const loadingIndicator = document.getElementById('loading-indicator');
         const progressText = document.getElementById('progress-text');
         const modelStatus = document.getElementById('model-status');
-        const logContainer = document.getElementById('log-container');
         const resultsListContainer = document.getElementById('results-list-container');
         const resultsListPlaceholder = document.getElementById('results-list-placeholder');
-        const chartContainer = document.getElementById('chart-container');
+        const paginationControls = document.getElementById('pagination-controls');
         const chartPlaceholder = document.getElementById('chart-placeholder');
         const detailChartCanvas = document.getElementById('detail-chart');
         const chartTooltip = document.getElementById('chart-tooltip');
@@ -112,43 +107,34 @@
         const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
         let allAnalysisData = [];
         let detailChart = null;
+        let currentPage = 1;
+        const ITEMS_PER_PAGE = 20;
 
         // --- GitHub API State ---
         const GITHUB_CONFIG = {
-            owner: 'garimto81',
-            repo: 'frame',
-            token: '#{GITHUB_TOKEN_PLACEHOLDER}#',
-            resultsIndexFile: 'data/results.json',
-            assetsPath: 'data/assets'
+            owner: 'garimto81', repo: 'frame', token: '#{GITHUB_TOKEN_PLACEHOLDER}#',
+            resultsIndexFile: 'data/results.json'
         };
-
         const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/`;
-        const GITHUB_HEADERS = {
-            'Authorization': `token ${GITHUB_CONFIG.token}`,
-            'Accept': 'application/vnd.github.v3+json',
-        };
+        const GITHUB_HEADERS = { 'Authorization': `token ${GITHUB_CONFIG.token}`, 'Accept': 'application/vnd.github.v3+json' };
         
         // --- Initialization ---
         async function initializeApp() {
-             if (GITHUB_CONFIG.token.includes('PLACEHOLDER')) {
+            if (GITHUB_CONFIG.token.includes('PLACEHOLDER')) {
                  modelStatus.textContent = '오류: GitHub Actions를 통해 배포된 페이지에서 접속해야 합니다.';
-                 analyzeButton.disabled = true;
-                 return;
+                 analyzeButton.disabled = true; return;
             }
             await loadFaceApiModels();
         }
         
         async function loadFaceApiModels() {
-             try {
+            try {
                 await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
                 modelsLoaded = true;
-                modelStatus.textContent = '얼굴 인식 모델 로딩 완료! 분석할 영상을 선택하세요.';
+                modelStatus.textContent = '얼굴 인식 모델 로딩 완료!';
                 updateAnalyzeButtonState();
                 initializeAndLoadGitHubData();
-            } catch (error) {
-                modelStatus.textContent = '얼굴 인식 모델 로딩 실패. 새로고침 해주세요.';
-                console.error("Face-api model loading failed:", error);
-            }
+            } catch (error) { modelStatus.textContent = '모델 로딩 실패'; console.error(error); }
         }
         
         // --- GitHub API Functions ---
@@ -156,63 +142,42 @@
             try {
                 const response = await fetch(GITHUB_API_URL + path, { headers: GITHUB_HEADERS });
                 if (response.status === 404) return null;
-                if (!response.ok) throw new Error(`GitHub API Error: ${response.status} ${response.statusText}`);
+                if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
                 return await response.json();
-            } catch (error) {
-                console.error('GitHub 파일 읽기 오류:', error);
-                appendLog(`[ERROR] GitHub 파일 읽기 실패: ${path}.`, 'text-red-500');
-                return 'error';
-            }
+            } catch (error) { console.error(`GitHub 읽기 오류: ${path}`, error); return 'error'; }
         }
 
         async function updateFileOnGitHub(path, content, sha, commitMessage) {
             const body = { message: commitMessage, content: btoa(unescape(encodeURIComponent(content))), sha: sha };
             try {
                 const response = await fetch(GITHUB_API_URL + path, { method: 'PUT', headers: GITHUB_HEADERS, body: JSON.stringify(body) });
-                if (!response.ok) throw new Error(`GitHub API Error: ${response.status} ${response.statusText}`);
-                appendLog(`[INFO] '${path}' 파일 업데이트/생성 완료`, 'text-blue-400');
-            } catch (error) { console.error('GitHub 파일 업데이트 오류:', error); appendLog(`[ERROR] GitHub 파일 업데이트 실패: ${path}.`, 'text-red-500'); }
+                if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+            } catch (error) { console.error(`GitHub 업데이트 오류: ${path}`, error); }
         }
 
-        async function uploadImageToGitHub(path, content, commitMessage) {
-             const body = { message: commitMessage, content: content.split(',')[1] };
+        async function uploadFileToGitHub(path, content, isBinary = false) {
+             const body = { message: `Upload ${path}`, content: isBinary ? content.split(',')[1] : btoa(unescape(encodeURIComponent(content))) };
              try {
                 const response = await fetch(GITHUB_API_URL + path, { method: 'PUT', headers: GITHUB_HEADERS, body: JSON.stringify(body) });
-                 if (!response.ok) throw new Error(`GitHub API Error: ${response.status} ${response.statusText}`);
+                if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
                  const result = await response.json();
                  return result.content.download_url;
-            } catch (error) {
-                console.error('GitHub 이미지 업로드 오류:', error);
-                appendLog(`[ERROR] GitHub 이미지 업로드 실패: ${path}.`, 'text-red-500');
-                return null;
-            }
+            } catch (error) { console.error(`GitHub 업로드 오류: ${path}`, error); return null; }
         }
         
         async function initializeAndLoadGitHubData() {
             resultsListPlaceholder.textContent = 'GitHub에서 분석 기록을 확인합니다...';
             let resultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsIndexFile);
-
-            if (resultsFile === 'error') { resultsListPlaceholder.textContent = 'GitHub 저장소 접근에 실패했습니다. 설정을 확인하세요.'; return; }
+            if (resultsFile === 'error') { resultsListPlaceholder.textContent = 'GitHub 저장소 접근 실패.'; return; }
             if (resultsFile === null) {
-                appendLog(`[INFO] '${GITHUB_CONFIG.resultsIndexFile}' 파일을 찾을 수 없습니다. 새로 생성합니다.`, 'text-yellow-400');
                 await updateFileOnGitHub(GITHUB_CONFIG.resultsIndexFile, '[]', null, 'Initialize results.json');
                 resultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsIndexFile);
             }
-
-            const assetsDirKeepPath = `${GITHUB_CONFIG.assetsPath}/.gitkeep`;
-            const keepFile = await getFileFromGitHub(assetsDirKeepPath);
-            if (keepFile === null) {
-                appendLog(`[INFO] 에셋 저장 폴더를 초기화합니다.`, 'text-yellow-400');
-                await updateFileOnGitHub(assetsDirKeepPath, '', null, 'Initialize assets directory');
-            }
-
             if(resultsFile && resultsFile.content) {
                 const content = decodeURIComponent(escape(atob(resultsFile.content)));
                 allAnalysisData = JSON.parse(content).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
                 renderAnalysisResultsList();
-            } else {
-                 resultsListPlaceholder.textContent = '아직 저장된 분석 기록이 없습니다.';
-            }
+            } else { resultsListPlaceholder.textContent = '저장된 분석 기록이 없습니다.'; }
         }
 
         // --- Core Logic & UI ---
@@ -226,41 +191,35 @@
 
         function updateAnalyzeButtonState() { analyzeButton.disabled = videoFiles.length === 0 || !modelsLoaded; }
         
-        function appendLog(message, colorClass = 'text-gray-400') {
-            const logEntry = document.createElement('div');
-            logEntry.textContent = `> ${message}`;
-            logEntry.className = colorClass;
-            logContainer.appendChild(logEntry);
-            logContainer.scrollTop = logContainer.scrollHeight;
-        }
-
-        // --- Tooltip Handler ---
         const externalTooltipHandler = (context) => {
             const {chart, tooltip} = context;
-            if (tooltip.opacity === 0) {
-                chartTooltip.style.opacity = 0;
-                chartTooltip.classList.add('hidden');
-                return;
-            }
+            if (tooltip.opacity === 0) { chartTooltip.style.opacity = 0; chartTooltip.classList.add('hidden'); return; }
             
             const analysisId = chart.canvas.dataset.analysisId;
             const analysisData = allAnalysisData.find(d => d.analysisId === analysisId);
-            const keyFrameData = analysisData.keyFrames.find(kf => kf.time === tooltip.dataPoints[0].parsed.x);
+            const dataPoint = tooltip.dataPoints[0];
+            const keyFrameData = analysisData.keyFrames.find(kf => kf.time === dataPoint.parsed.x);
 
             if (keyFrameData) {
-                chartTooltip.innerHTML = `<div class="flex gap-2 p-1"><div class="text-center"><p class="text-xs font-semibold text-green-400 mb-1">선명</p><img src="${keyFrameData.sharpUrl}" class="w-24 h-24 object-cover rounded"></div><div class="text-center"><p class="text-xs font-semibold text-red-400 mb-1">흐림</p><img src="${keyFrameData.blurryUrl}" class="w-24 h-24 object-cover rounded"></div></div>`;
+                const isOverridden = keyFrameData.manualOverride === 'ok';
+                chartTooltip.innerHTML = `<div class="flex gap-4 p-1"><div class="text-center w-1/2"><p class="text-sm font-semibold text-green-400 mb-1">선명</p><img src="${keyFrameData.sharpUrl}" class="w-full h-auto object-contain rounded"></div><div class="text-center w-1/2"><p class="text-sm font-semibold ${isOverridden ? 'text-green-400' : 'text-red-400'} mb-1">${isOverridden ? '흐림 (수동OK)' : '흐림'}</p><img src="${keyFrameData.blurryUrl}" class="w-full h-auto object-contain rounded"></div></div>
+                <button id="manual-override-button" data-analysis-id="${analysisId}" data-time="${keyFrameData.time}" class="w-full mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm">이 프레임은 문제 없음 (녹색으로 변경)</button>`;
+                
                 chartTooltip.style.opacity = 1;
                 chartTooltip.classList.remove('hidden');
                 
-                // **FIXED**: Correct tooltip positioning
-                const { offsetLeft, offsetTop } = chart.canvas;
+                const { offsetLeft, offsetTop } = chart.canvas.parentElement;
                 chartTooltip.style.left = offsetLeft + tooltip.caretX + 'px';
                 chartTooltip.style.top = offsetTop + tooltip.caretY + 'px';
-
-            } else {
-                 chartTooltip.style.opacity = 0;
-                 chartTooltip.classList.add('hidden');
-            }
+                
+                const overrideButton = document.getElementById('manual-override-button');
+                if (overrideButton) {
+                    overrideButton.onclick = (e) => {
+                        e.stopPropagation();
+                        handleManualCorrection(analysisId, keyFrameData.time);
+                    };
+                }
+            } else { chartTooltip.style.opacity = 0; chartTooltip.classList.add('hidden'); }
         };
 
         // --- Render Functions ---
@@ -268,47 +227,60 @@
             resultsListPlaceholder.classList.add('hidden');
             resultsListContainer.innerHTML = '';
             
-            allAnalysisData.forEach((data, index) => {
+            const totalPages = Math.ceil(allAnalysisData.length / ITEMS_PER_PAGE);
+            const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+            const endIndex = startIndex + ITEMS_PER_PAGE;
+            const paginatedData = allAnalysisData.slice(startIndex, endIndex);
+
+            paginatedData.forEach((data) => {
                 const item = document.createElement('div');
-                item.className = 'result-item p-3 border-b cursor-pointer';
+                item.className = 'result-item p-3 border-b flex justify-between items-center cursor-pointer';
                 item.dataset.analysisId = data.analysisId;
-                item.innerHTML = `
-                    <p class="font-medium text-gray-800 truncate">${data.fileName}</p>
-                    <p class="text-sm text-gray-500">${new Date(data.timestamp).toLocaleString('ko-KR')}</p>
-                    <p class="text-sm font-semibold ${data.problematic ? 'text-red-500' : 'text-green-600'}">Avg Score: ${data.avgScore.toFixed(2)}</p>
-                `;
+                item.innerHTML = `<div class="flex-grow"><p class="font-medium text-gray-800 truncate text-sm">${data.fileName}</p><p class="text-xs text-gray-500">${new Date(data.timestamp).toLocaleDateString()}</p></div><div class="text-sm font-semibold ${data.problematic ? 'text-red-500' : 'text-green-600'}">Avg: ${data.avgScore.toFixed(2)}</div>`;
                 resultsListContainer.appendChild(item);
             });
 
             resultsListContainer.querySelectorAll('.result-item').forEach(item => {
-                item.addEventListener('click', async (e) => {
-                     resultsListContainer.querySelectorAll('.result-item').forEach(r => r.classList.remove('selected'));
-                     item.classList.add('selected');
+                item.addEventListener('click', (e) => {
+                    resultsListContainer.querySelectorAll('.result-item').forEach(r => r.classList.remove('selected'));
+                    item.classList.add('selected');
                     const analysisId = e.currentTarget.dataset.analysisId;
                     renderDetailedView(analysisId);
                 });
             });
+            renderPagination(totalPages);
+        }
+        
+        function renderPagination(totalPages) {
+            paginationControls.innerHTML = '';
+            if (totalPages <= 1) return;
+            for (let i = 1; i <= totalPages; i++) {
+                const button = document.createElement('button');
+                button.textContent = i;
+                button.className = `px-3 py-1 rounded-md text-sm ${i === currentPage ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`;
+                button.onclick = () => { currentPage = i; renderAnalysisResultsList(); };
+                paginationControls.appendChild(button);
+            }
         }
 
-        async function renderDetailedView(analysisId) {
+        function renderDetailedView(analysisId) {
             chartPlaceholder.classList.add('hidden');
-            logContainer.innerHTML = '<p class="text-gray-400 text-center py-4">로그를 불러오는 중...</p>';
-            
             const resultData = allAnalysisData.find(d => d.analysisId === analysisId);
             if (!resultData) return;
 
-            // Render Chart
-            if (detailChart) {
-                detailChart.destroy();
-            }
+            if (detailChart) { detailChart.destroy(); }
             detailChartCanvas.dataset.analysisId = analysisId;
-            const blurryPoints = resultData.keyFrames ? resultData.keyFrames.map(kf => ({x: kf.time, y: resultData.frameScores.find(fs => fs.time === kf.time)?.score || 0})) : [];
+            
+            const blurryPoints = (resultData.keyFrames || []).filter(kf => kf.manualOverride !== 'ok').map(kf => ({x: kf.time, y: resultData.frameScores.find(fs => fs.time === kf.time)?.score || 0}));
+            const okPoints = (resultData.keyFrames || []).filter(kf => kf.manualOverride === 'ok').map(kf => ({x: kf.time, y: resultData.frameScores.find(fs => fs.time === kf.time)?.score || 0}));
+
             detailChart = new Chart(detailChartCanvas, {
                 type: 'line',
                 data: {
                     datasets: [
-                        { label: '선명도', data: resultData.frameScores.map(fs => ({x: fs.time, y: fs.score})), borderColor: 'rgba(59, 130, 246, 0.7)', borderWidth: 2, pointRadius: 0, tension: 0.1, },
-                        { label: '흐림 감지', data: blurryPoints, backgroundColor: 'rgb(239, 68, 68)', pointRadius: 5, pointHoverRadius: 7, type: 'scatter', }
+                        { label: '선명도', data: resultData.frameScores.map(fs => ({x: fs.time, y: fs.score})), borderColor: 'rgba(59, 130, 246, 0.5)', borderWidth: 1, pointRadius: 0, tension: 0.4, },
+                        { label: '흐림 감지', data: blurryPoints, backgroundColor: 'rgb(239, 68, 68)', pointRadius: 5, pointHoverRadius: 7, type: 'scatter', },
+                        { label: '수동 확인', data: okPoints, backgroundColor: 'rgb(34, 197, 94)', pointRadius: 5, pointHoverRadius: 7, type: 'scatter', }
                     ]
                 },
                 options: {
@@ -317,35 +289,30 @@
                     scales: { x: { type: 'linear', title: { display: true, text: '시간 (초)' } }, y: { beginAtZero: true, title: { display: true, text: '점수' } } }
                 }
             });
+        }
+        
+        async function handleManualCorrection(analysisId, time) {
+            const analysisIndex = allAnalysisData.findIndex(d => d.analysisId === analysisId);
+            if (analysisIndex === -1) return;
+            const keyFrameIndex = allAnalysisData[analysisIndex].keyFrames.findIndex(kf => kf.time === time);
+            if (keyFrameIndex === -1) return;
 
-            // Render Log File
-            const logFile = await getFileFromGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/log.txt`);
-            if (logFile && logFile.content) {
-                const logContent = decodeURIComponent(escape(atob(logFile.content)));
-                logContainer.innerHTML = '';
-                logContent.split('\n').forEach(line => {
-                    const logEntry = document.createElement('div');
-                    logEntry.textContent = line;
-                    if(line.includes('흐림')) logEntry.className = 'text-red-500';
-                    else if(line.includes('선명')) logEntry.className = 'text-green-500';
-                    else if(line.startsWith('> [START]')) logEntry.className = 'text-cyan-400';
-                    else logEntry.className = 'text-gray-400';
-                    logContainer.appendChild(logEntry);
-                });
-            } else {
-                logContainer.innerHTML = '<p class="text-gray-400 text-center py-4">로그 파일을 찾을 수 없습니다.</p>';
-            }
+            allAnalysisData[analysisIndex].keyFrames[keyFrameIndex].manualOverride = 'ok';
+            renderDetailedView(analysisId); // Re-render chart immediately
+
+            const existingResultsFile = await getFileFromGitHub(GITHUB_CONFIG.resultsIndexFile);
+            await updateFileOnGitHub(GITHUB_CONFIG.resultsIndexFile, JSON.stringify(allAnalysisData, null, 2), existingResultsFile.sha, `Update manual override for ${analysisId}`);
         }
 
         // --- Event Handlers & Main Analysis Logic ---
         videoFilesInput.addEventListener('change', (event) => { videoFiles = Array.from(event.target.files); updateAnalyzeButtonState(); });
         thresholdSlider.addEventListener('input', (event) => { thresholdValueEl.textContent = event.target.value; });
 
-        analyzeButton.addEventListener('click', async () => {
+        analyzeButton.addEventListener('click', async () => { /* ... */
             if (videoFiles.length === 0) { alert('먼저 분석할 영상 파일을 선택해주세요.'); return; }
             loadingIndicator.style.display = 'flex';
             analyzeButton.disabled = true;
-            logContainer.innerHTML = '';
+            document.getElementById('log-container').innerHTML = ''; // Clear live log
             
             const threshold = parseFloat(thresholdSlider.value);
             const analysisVideo = document.createElement('video');
@@ -361,8 +328,6 @@
                 const file = videoFiles[i];
                 const cleanFileNameForId = file.name.replace(/[^a-zA-Z0-9]/g, '_');
                 const analysisId = `${cleanFileNameForId}_${new Date().toISOString()}`;
-                let liveLogContent = `[START] '${file.name}' 분석을 시작합니다. (ID: ${analysisId})\n`;
-                appendLog(`[START] '${file.name}' 분석 (ID: ${analysisId})`);
                 
                 const fileURL = URL.createObjectURL(file);
                 analysisVideo.src = fileURL;
@@ -383,7 +348,6 @@
                     const detections = await faceapi.detectAllFaces(analysisVideo, new faceapi.TinyFaceDetectorOptions());
                     const centermostFace = getCentermostFace(detections, analysisVideo.videoWidth, analysisVideo.videoHeight);
                     
-                    let logLine;
                     if (centermostFace) {
                         analysisCanvas.width = analysisVideo.videoWidth; analysisCanvas.height = analysisVideo.videoHeight;
                         analysisCtx.drawImage(analysisVideo, 0, 0, analysisCanvas.width, analysisCanvas.height);
@@ -392,9 +356,6 @@
                         const faceImageData = analysisCtx.getImageData(x, y, width, height);
                         const score = calculateFocusScore(faceImageData);
                         const isBlurry = score < threshold;
-
-                        logLine = `Time: ${currentTime.toFixed(2)}s | Score: ${score.toFixed(2)} | Status: ${isBlurry ? '흐림' : '선명'}`;
-                        appendLog(logLine, isBlurry ? 'text-red-500' : 'text-green-500');
                         
                         cropCanvas.width = width; cropCanvas.height = height;
                         cropCtx.putImageData(faceImageData, 0, 0);
@@ -407,12 +368,7 @@
                             keyFramesToUpload.push({ time: currentFrame.time, sharpDataURL: previousFrame.dataURL, blurryDataURL: currentFrame.dataURL });
                         }
                         previousFrame = currentFrame;
-                    } else {
-                        logLine = `Time: ${currentTime.toFixed(2)}s | Status: 얼굴 미검출`;
-                        appendLog(logLine, 'text-gray-500');
-                        previousFrame = null;
-                    }
-                    liveLogContent += logLine + '\n';
+                    } else { previousFrame = null; }
                 }
                 
                 const detectedFrameCount = frameScores.length;
@@ -425,12 +381,10 @@
                     const cleanFileName = file.name.split('.').slice(0, -1).join('');
                     const sharpFileName = `${cleanFileName}_${kf.time.toFixed(2)}s_sharp.jpeg`;
                     const blurryFileName = `${cleanFileName}_${kf.time.toFixed(2)}s_blurry.jpeg`;
-                    const sharpUrl = await uploadImageToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${sharpFileName}`, kf.sharpDataURL, `upload ${sharpFileName}`);
-                    const blurryUrl = await uploadImageToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${blurryFileName}`, kf.blurryDataURL, `upload ${blurryFileName}`);
+                    const sharpUrl = await uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${sharpFileName}`, kf.sharpDataURL, true);
+                    const blurryUrl = await uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${blurryFileName}`, kf.blurryDataURL, true);
                     if (sharpUrl && blurryUrl) { uploadedKeyFrames.push({time: kf.time, sharpUrl, blurryUrl}); }
                 }
-                
-                await updateFileOnGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/log.txt`, liveLogContent, null, `Add log for ${analysisId}`);
                 
                 const newResult = {
                     analysisId: analysisId, timestamp: new Date().toISOString(), fileName: file.name,
@@ -448,9 +402,7 @@
                 allResults.push(newResult);
                 
                 await updateFileOnGitHub(GITHUB_CONFIG.resultsIndexFile, JSON.stringify(allResults, null, 2), currentSha, `Add analysis result for ${file.name}`);
-                
                 URL.revokeObjectURL(fileURL);
-                appendLog(`[END] '${file.name}' 분석 완료.`, 'text-cyan-400');
             }
 
             loadingIndicator.style.display = 'none';
