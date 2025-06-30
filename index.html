@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>포커스 이슈 탐지기 - Ver 0.30</title>
+    <title>포커스 이슈 탐지기 - Ver 0.33 (Firebase DB + GitHub Storage)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -14,21 +14,6 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .result-item:hover { background-color: #f0f9ff; }
         .result-item.selected { background-color: #dbeafe; }
-        #chart-tooltip {
-            position: fixed;
-            background: #ffffff;
-            border: 1px solid #e5e7eb;
-            color: black;
-            border-radius: 0.75rem;
-            padding: 1rem;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.2s ease-in-out;
-            z-index: 50;
-            width: 44rem;
-            max-width: 90vw;
-            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -40,13 +25,9 @@
                 <span id="version-display" class="text-base align-middle text-blue-600 font-semibold"></span>
             </h1>
             <p id="model-status" class="text-sm text-yellow-600 mt-1">인식 모델 로딩 중...</p>
-             <div class="absolute top-4 right-4">
-                <button id="how-it-works-button" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm font-medium hover:bg-gray-300 transition">작동 방식 보기</button>
-            </div>
         </header>
         
         <main class="space-y-8">
-            <!-- Controls -->
             <div class="bg-white p-6 rounded-2xl shadow-lg">
                 <h2 class="text-xl font-semibold mb-4 border-b pb-2">1. 제어 패널</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
@@ -64,17 +45,16 @@
                 </div>
                 <div class="mt-6 text-center">
                      <button id="analyze-button" class="w-full md:w-auto bg-green-600 text-white font-bold py-3 px-12 rounded-full hover:bg-green-700 transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed">
-                        분석 및 GitHub에 저장
+                        분석 시작
                     </button>
                     <div id="loading-indicator" class="hidden mt-4 flex flex-col items-center"><div class="loader"></div><p id="progress-text" class="text-gray-600 mt-2"></p></div>
                 </div>
             </div>
 
-            <!-- Results List & Details Section -->
             <div class="bg-white p-6 rounded-2xl shadow-lg">
                  <h2 class="text-xl font-semibold mb-4 border-b pb-2">2. 분석 기록</h2>
                  <div id="results-list-container" class="space-y-1">
-                    <p id="results-list-placeholder" class="text-gray-500 text-center py-4">GitHub 정보 확인 중...</p>
+                    <p id="results-list-placeholder" class="text-gray-500 text-center py-4">Firebase 연결 중...</p>
                 </div>
                 <div id="pagination-controls" class="pt-4 mt-4 border-t flex justify-center gap-2"></div>
             </div>
@@ -102,54 +82,26 @@
         </main>
     </div>
 
-    <!-- How It Works Modal -->
-    <div id="how-it-works-modal" class="hidden fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-            <div class="flex justify-between items-center border-b p-4">
-                <h3 class="text-xl font-bold">작동 방식</h3>
-                <button id="close-modal-button" class="text-gray-400 hover:text-gray-700 text-3xl leading-none">&times;</button>
-            </div>
-            <div class="p-6 space-y-6 overflow-y-auto">
-                <div>
-                    <h4 class="font-bold text-lg mb-2">1. 영상 분석 및 설정</h4>
-                    <p class="text-gray-700 text-sm leading-relaxed">
-                        사용자는 분석할 영상 파일(.mp4, .mov)을 선택합니다. '흐림 기준값'을 조절하여 선명도 판단의 민감도를 설정할 수 있습니다. (값이 낮을수록 사소한 흐림도 문제로 감지합니다.) '분석 시작'을 누르면 분석이 시작되며, 브라우저가 잠시 멈출 수 있습니다.
-                    </p>
-                    <img src="https://placehold.co/600x200/e2e8f0/4a5568?text=1.+%ED%8C%8C%EC%9D%BC+%EC%84%A0%ED%83%9D+%26+%EC%84%A4%EC%A0%95+UI" alt="파일 선택 및 설정 UI 예시" class="mt-2 rounded-md border w-full h-auto object-contain">
-                </div>
-                <div>
-                    <h4 class="font-bold text-lg mb-2">2. 얼굴 탐지 및 선명도 측정</h4>
-                    <p class="text-gray-700 text-sm leading-relaxed">
-                        영상에서 0.5초 간격으로 프레임을 추출하여 <strong>face-api.js</strong>로 얼굴을 탐지합니다. 신뢰도가 50% 이상인 얼굴만 대상으로 하며, 여러 얼굴이 있다면 영상 중앙에 가장 가까운 얼굴을 기준으로 삼습니다. 탐지된 얼굴 영역에 '라플라시안 분산' 알고리즘을 적용하여 선명도 점수를 계산합니다.
-                    </p>
-                     <img src="https://raw.githubusercontent.com/garimto81/frame/refs/heads/main/2506271214.png" alt="얼굴 탐지 및 선명도 측정 예시" class="mt-2 rounded-md border w-full h-auto object-contain max-h-64">
-                </div>
-                <div>
-                    <h4 class="font-bold text-lg mb-2">3. 문제 프레임 감지 및 저장</h4>
-                    <p class="text-gray-700 text-sm leading-relaxed">
-                        이전 프레임의 상태가 '선명' 또는 '미검출'이었는데 현재 프레임에서 '흐림' 상태의 얼굴이 감지되면 '문제 프레임'으로 판단합니다. 이 때, 이전 프레임과 현재 문제 프레임을 한 쌍으로 캡처하여 GitHub 저장소에 안전하게 업로드합니다.
-                    </p>
-                     <img src="https://raw.githubusercontent.com/garimto81/frame/refs/heads/main/%EC%8A%A4%ED%81%AC%EB%A6%B0%EC%83%B7%202025-06-27%20121633.png" alt="문제 프레임 감지 예시" class="mt-2 rounded-md border w-full h-auto object-contain max-h-64">
-                </div>
-                <div>
-                    <h4 class="font-bold text-lg mb-2">4. 결과 확인 및 수동 보정</h4>
-                    <p class="text-gray-700 text-sm leading-relaxed">
-                        분석 기록을 클릭하면 상세 그래프, 주요 프레임, 전체 로그를 확인할 수 있습니다. 시스템이 잘못 판단한 경우, 버튼을 클릭하여 '문제 없음'으로 상태를 변경하거나 다시 '문제 프레임'으로 되돌릴 수 있습니다.
-                    </p>
-                    <img src="https://raw.githubusercontent.com/garimto81/frame/refs/heads/main/%EC%8A%A4%ED%81%AC%EB%A6%B0%EC%83%B7%202025-06-27%20121552.png" alt="결과 확인 및 보정 UI 예시" class="mt-2 rounded-md border w-full h-auto object-contain max-h-64">
-                </div>
-            </div>
-        </div>
-    </div>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
-    <!-- Chart Tooltip -->
-    <div id="chart-tooltip" class="hidden"></div>
-    <script>
-        const APP_VERSION = "0.30";
+        const APP_VERSION = "0.33";
         document.title = `포커스 이슈 탐지기 - Ver ${APP_VERSION}`;
         document.getElementById('version-display').textContent = `Ver ${APP_VERSION}`;
         
-        // --- DOM References ---
+        // --- Firebase Configuration ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAyTh3kG9pPcgqcs-MHXSBKFgY_gnRWae0",
+            authDomain: "analyze-frame-focus.firebaseapp.com",
+            projectId: "analyze-frame-focus",
+            storageBucket: "analyze-frame-focus.firebasestorage.app",
+            messagingSenderId: "995861796391",
+            appId: "1:995861796391:web:549944764ca046594c2002",
+        };
+
+        
+        // --- DOM References & Global State ---
         const videoFilesInput = document.getElementById('video-files-input');
         const thresholdSlider = document.getElementById('threshold-slider');
         const thresholdValueEl = document.getElementById('threshold-value');
@@ -164,30 +116,23 @@
         const detailsTitle = document.getElementById('details-title');
         const detailChartCanvas = document.getElementById('detail-chart');
         const logContainer = document.getElementById('log-container');
-        const chartTooltip = document.getElementById('chart-tooltip');
         const keyFramesContainer = document.getElementById('key-frames-container');
         const keyFramesPlaceholder = document.getElementById('key-frames-placeholder');
-        const howItWorksButton = document.getElementById('how-it-works-button');
-        const howItWorksModal = document.getElementById('how-it-works-modal');
-        const closeModalButton = document.getElementById('close-modal-button');
 
-        // --- Global State ---
         let videoFiles = [];
         let modelsLoaded = false;
         const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
-        let allAnalysisData = {};
+        let allAnalysisData = [];
         let detailChart = null;
         let currentPage = 1;
         const ITEMS_PER_PAGE = 20;
+        let db;
 
-        // --- GitHub API State ---
+        // --- GitHub API State (for Storage only) ---
         const GITHUB_CONFIG = {
             owner: 'garimto81', repo: 'frame', token: '#{GITHUB_TOKEN_PLACEHOLDER}#',
-            mainDataPath: 'data/main.json',
-            pendingPath: 'data/pending/',
             assetsPath: 'data/assets/'
         };
-
         const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/`;
         const GITHUB_HEADERS = { 'Authorization': `token ${GITHUB_CONFIG.token}`, 'Accept': 'application/vnd.github.v3+json' };
         
@@ -204,12 +149,24 @@
         }
 
         // --- Initialization ---
-        async function initializeApp() {
-            if (GITHUB_CONFIG.token.includes('PLACEHOLDER')) {
-                modelStatus.textContent = '오류: GitHub Actions를 통해 배포된 페이지에서 접속해야 합니다.';
+        async function startApp() {
+            if (firebaseConfig.apiKey === "YOUR_API_KEY") {
+                modelStatus.textContent = '오류: Firebase 구성 정보가 설정되지 않았습니다.';
                 analyzeButton.disabled = true; return;
             }
-            setupModal();
+             if (GITHUB_CONFIG.token.includes('PLACEHOLDER')) {
+                modelStatus.textContent = '오류: GitHub Token이 설정되지 않았습니다.';
+                analyzeButton.disabled = true; return;
+            }
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                appendLog('Firebase 연결 성공.', 'text-green-500');
+            } catch (e) {
+                 appendLog('Firebase 연결 실패! 구성 정보를 확인해주세요.', 'text-red-500');
+                 console.error("Firebase init error:", e);
+                 return;
+            }
             await loadFaceApiModels();
         }
         
@@ -219,51 +176,26 @@
                 modelsLoaded = true;
                 modelStatus.textContent = '얼굴 인식 모델 로딩 완료!';
                 updateAnalyzeButtonState();
-                await initializeAndLoadGitHubData();
+                listenForDataChanges();
             } catch (error) { modelStatus.textContent = '모델 로딩 실패'; console.error(error); }
         }
         
-        // --- GitHub API Functions ---
-        async function getFileFromGitHub(path) {
-            try {
-                const url = new URL(GITHUB_API_URL + path);
-                url.searchParams.append('_', new Date().getTime());
-
-                const response = await fetch(url.toString(), { headers: GITHUB_HEADERS, cache: "no-store" });
-                if (response.status === 404) return null;
-                if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-                return await response.json();
-            } catch (error) { console.error(`GitHub 읽기 오류: ${path}`, error); return 'error'; }
-        }
-
-        async function createOrUpdateFileOnGitHub(path, content, sha, commitMessage) {
-            const body = { 
-                message: commitMessage, 
-                content: btoa(unescape(encodeURIComponent(content)))
-            };
-            if (sha) {
-                body.sha = sha;
-            }
-            try {
-                const response = await fetch(GITHUB_API_URL + path, { 
-                    method: 'PUT', 
-                    headers: GITHUB_HEADERS, 
-                    body: JSON.stringify(body) 
-                });
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(`GitHub API Error: ${response.status} - ${errorData.message}`);
-                }
-                return await response.json();
-            } catch (error) { 
-                console.error(`GitHub 쓰기 오류: ${path}`, error);
-                throw error;
-            }
+        function listenForDataChanges() {
+            const analysesCol = collection(db, 'analyses');
+            onSnapshot(analysesCol, (snapshot) => {
+                appendLog(`DB: 실시간 데이터 수신. 총 ${snapshot.size}개 기록.`, 'text-cyan-400');
+                allAnalysisData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                allAnalysisData.sort((a,b) => b.timestamp.seconds - a.timestamp.seconds);
+                renderAnalysisResultsList();
+            }, (error) => {
+                appendLog(`DB: 데이터 수신 오류: ${error.message}`, 'text-red-500');
+                console.error("Firestore snapshot error:", error);
+            });
         }
 
         async function uploadFileToGitHub(path, content, isBinary = false) {
              const body = { 
-                message: `Upload ${path}`, 
+                message: `Upload asset: ${path}`, 
                 content: isBinary ? content.split(',')[1] : btoa(unescape(encodeURIComponent(content))) 
             };
             try {
@@ -274,57 +206,6 @@
             } catch (error) { 
                 console.error(`GitHub 업로드 오류: ${path}`, error); 
                 return null; 
-            }
-        }
-        
-        async function initializeAndLoadGitHubData() {
-            resultsListPlaceholder.textContent = 'GitHub에서 분석 기록을 확인합니다...';
-            appendLog('DB: 데이터 로딩 시도...', 'text-cyan-400');
-            try {
-                let mainDataFile = await getFileFromGitHub(GITHUB_CONFIG.mainDataPath);
-                
-                if (mainDataFile === 'error') {
-                    appendLog('DB: 1. GitHub API 호출 실패.', 'text-red-500');
-                    throw new Error('GitHub 저장소 접근 실패');
-                }
-                appendLog('DB: 1. GitHub API 호출 성공.', 'text-green-500');
-
-                if (mainDataFile === null) {
-                    appendLog('DB: 2. main.json 파일 없음. 새로 생성합니다...', 'text-yellow-400');
-                    await createOrUpdateFileOnGitHub(GITHUB_CONFIG.mainDataPath, '{}', null, 'Initialize main.json');
-                    appendLog('DB: 3. main.json 파일 생성 완료.', 'text-green-500');
-                    allAnalysisData = {};
-                } else {
-                    appendLog('DB: 2. main.json 파일 발견됨.', 'text-green-500');
-                    let content;
-                    if (mainDataFile.content) {
-                        content = decodeURIComponent(escape(atob(mainDataFile.content)));
-                    } else if (mainDataFile.download_url) {
-                        appendLog('DB: 3a. 파일 내용 없음 (대용량 추정). download_url에서 직접 가져옵니다...', 'text-yellow-400');
-                        const dlResponse = await fetch(mainDataFile.download_url);
-                        if (!dlResponse.ok) throw new Error('download_url에서 파일 다운로드 실패');
-                        content = await dlResponse.text();
-                        appendLog('DB: 3b. 대용량 파일 다운로드 성공.', 'text-green-500');
-                    } else {
-                        throw new Error("파일 내용은 없으나 download_url도 찾을 수 없음");
-                    }
-                    
-                    try {
-                        appendLog('DB: 4. 데이터 파싱 시도...');
-                        allAnalysisData = JSON.parse(content);
-                        appendLog(`DB: 5. 데이터 파싱 및 처리 성공. ${Object.keys(allAnalysisData).length}개의 기록 발견됨.`, 'text-green-500');
-                    } catch (parseError) {
-                        appendLog('DB: 5. 데이터 파싱 실패! 파일이 손상되었을 수 있습니다.', 'text-red-500');
-                        console.error("JSON Parse Error:", parseError);
-                        allAnalysisData = {};
-                    }
-                }
-                renderAnalysisResultsList();
-
-            } catch (e) {
-                appendLog(`DB: 치명적 오류 발생: ${e.message}`, 'text-red-500');
-                console.error("Failed to initialize or load data:", e);
-                resultsListPlaceholder.textContent = `데이터 로딩 오류: ${e.message}`;
             }
         }
 
@@ -339,57 +220,29 @@
 
         function updateAnalyzeButtonState() { analyzeButton.disabled = videoFiles.length === 0 || !modelsLoaded; }
         
-        const externalTooltipHandler = (context) => {
-            const {chart, tooltip} = context;
-            if (tooltip.opacity === 0) { chartTooltip.style.opacity = 0; chartTooltip.classList.add('hidden'); return; }
-            
-            const analysisId = chart.canvas.dataset.analysisId;
-            const analysisData = allAnalysisData[analysisId];
-            if (!analysisData) return;
-            const dataPoint = tooltip.dataPoints[0];
-            const keyFrameData = analysisData.keyFrames.find(kf => kf.time === dataPoint.parsed.x);
-
-            if (keyFrameData) {
-                const isOverridden = keyFrameData.manualOverride === 'ok';
-                chartTooltip.innerHTML = `<div class="flex gap-4 p-1"><div class="text-center w-1/2"><p class="text-sm font-semibold text-green-400 mb-1">이전 프레임</p><img src="${keyFrameData.sharpUrl}" class="w-full h-auto object-contain rounded"></div><div class="text-center w-1/2"><p class="text-sm font-semibold ${isOverridden ? 'text-green-400' : 'text-red-400'} mb-1">${isOverridden ? '문제 프레임 (수동OK)' : '문제 프레임'}</p><img src="${keyFrameData.blurryUrl}" class="w-full h-auto object-contain rounded"></div></div>`;
-                
-                chartTooltip.style.opacity = 1;
-                chartTooltip.classList.remove('hidden');
-                
-                const { offsetLeft, offsetTop } = chart.canvas;
-                const tooltipX = offsetLeft + tooltip.caretX;
-                const tooltipY = offsetTop + tooltip.caretY;
-                
-                chartTooltip.style.left = `${tooltipX}px`;
-                chartTooltip.style.top = `${tooltipY}px`;
-            } else { chartTooltip.style.opacity = 0; chartTooltip.classList.add('hidden'); }
-        };
-
         // --- Render Functions ---
         function renderAnalysisResultsList() {
             resultsListPlaceholder.classList.add('hidden');
             resultsListContainer.innerHTML = '';
             
-            const dataArray = Object.values(allAnalysisData).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-            
-            if (dataArray.length === 0) {
+            if (allAnalysisData.length === 0) {
                  resultsListPlaceholder.textContent = '저장된 분석 기록이 없습니다.';
                  resultsListPlaceholder.classList.remove('hidden');
                  return;
             }
 
-            const totalPages = Math.ceil(dataArray.length / ITEMS_PER_PAGE);
+            const totalPages = Math.ceil(allAnalysisData.length / ITEMS_PER_PAGE);
             const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-            const paginatedData = dataArray.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+            const paginatedData = allAnalysisData.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
             paginatedData.forEach((data) => {
                 const item = document.createElement('div');
                 item.className = 'result-item p-3 border-b flex justify-between items-center cursor-pointer';
-                item.dataset.analysisId = data.analysisId;
+                item.dataset.analysisId = data.id;
                 item.innerHTML = `
                     <div class="flex-grow">
                         <p class="font-medium text-gray-800 truncate text-sm">${data.fileName}</p>
-                        <p class="text-xs text-gray-500">${new Date(data.timestamp).toLocaleString()}</p>
+                        <p class="text-xs text-gray-500">${new Date(data.timestamp.seconds * 1000).toLocaleString()}</p>
                     </div>
                     <div class="flex items-center">
                         <div class="text-sm font-semibold ${data.problematic ? 'text-red-500' : 'text-green-600'} w-24 text-right">Avg: ${data.avgScore.toFixed(2)}</div>
@@ -438,9 +291,8 @@
 
         async function renderDetailedView(analysisId) {
             detailsSection.classList.remove('hidden');
-            logContainer.innerHTML = '<p class="text-gray-400 text-center py-4">로그를 불러오는 중...</p>';
             
-            const resultData = allAnalysisData[analysisId];
+            const resultData = allAnalysisData.find(d => d.id === analysisId);
             if (!resultData) return;
             detailsTitle.textContent = `상세 분석: ${resultData.fileName}`;
 
@@ -459,128 +311,40 @@
                         { label: '수동 확인', data: okPoints, backgroundColor: 'rgb(34, 197, 94)', pointRadius: 5, pointHoverRadius: 7, type: 'scatter', }
                     ]
                 },
-                options: {
-                    responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' },
-                    plugins: { legend: { display: false }, tooltip: { enabled: false, external: externalTooltipHandler, position: 'nearest' } },
-                    scales: { x: { type: 'linear', title: { display: true, text: '시간 (초)' } }, y: { beginAtZero: true, title: { display: true, text: '점수' } } }
-                }
+                options: { /* ... Chart options ... */ }
             });
 
             renderKeyFramesForDetail(resultData);
-
-            try {
-                const logFileResponse = await getFileFromGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/log.txt`);
-                let logContent = '';
-                if (logFileResponse && logFileResponse.content) {
-                    logContent = decodeURIComponent(escape(atob(logFileResponse.content)));
-                } else if (logFileResponse && logFileResponse.download_url) {
-                    const dlResponse = await fetch(logFileResponse.download_url);
-                    if (!dlResponse.ok) throw new Error('Log file download failed');
-                    logContent = await dlResponse.text();
-                }
-
-                 if (logContent) {
-                    logContainer.innerHTML = '';
-                    logContent.split('\n').forEach(line => {
-                        const logEntry = document.createElement('div');
-                        const logText = line.startsWith(`[Ver`) ? line : `[Ver ${APP_VERSION}] ${line}`;
-                        logEntry.textContent = logText;
-                        if(line.includes('흐림') || line.includes('문제')) logEntry.className = 'text-red-500';
-                        else if(line.includes('선명')) logEntry.className = 'text-green-500';
-                        else if(line.startsWith('[START]')) logEntry.className = 'text-cyan-400';
-                        else logEntry.className = 'text-gray-400';
-                        logContainer.appendChild(logEntry);
-                    });
-                } else {
-                     logContainer.innerHTML = '<p class="text-gray-400 text-center py-4">저장된 로그 파일을 찾을 수 없습니다.</p>';
-                }
-            } catch(e) {
-                console.error("Failed to render log file:", e);
-                logContainer.innerHTML = `<p class="text-gray-400 text-center py-4">로그 파일 로딩 중 오류 발생: ${e.message}</p>`;
-            }
         }
         
         function renderKeyFramesForDetail(resultData) {
-            keyFramesPlaceholder.classList.add('hidden');
             keyFramesContainer.innerHTML = '';
             
             if (!resultData.keyFrames || resultData.keyFrames.length === 0) {
-                keyFramesPlaceholder.textContent = '이 분석에는 감지된 문제 프레임이 없습니다.';
-                keyFramesPlaceholder.classList.remove('hidden');
+                keyFramesContainer.innerHTML = `<p class="text-gray-500 text-center py-4">이 분석에는 감지된 문제 프레임이 없습니다.</p>`;
                 return;
             }
 
             resultData.keyFrames.forEach(data => {
                 const isOverridden = data.manualOverride === 'ok';
-                const sharpDimsText = (data.sharpBox && data.sharpBox.width) ? `${Math.round(data.sharpBox.width)}x${Math.round(data.sharpBox.height)}` : '전체 화면';
-                const blurryDimsText = (data.blurryBox && data.blurryBox.width) ? `${Math.round(data.blurryBox.width)}x${Math.round(data.blurryBox.height)}` : '전체 화면';
-
                 const pairContainer = document.createElement('div');
                 pairContainer.className = 'p-4 bg-gray-50 rounded-lg shadow-inner border space-y-4';
                 pairContainer.innerHTML = `
                     <h4 class="font-bold text-md">@ ${data.time.toFixed(2)}초</h4>
-                    
-                    <!-- Expanded (Cropped) View -->
-                    <div>
-                        <h5 class="text-sm font-semibold text-gray-600 mb-2">확대 보기</h5>
-                        <div class="flex gap-4">
-                            <div class="flex-1 text-center">
-                                <p class="text-xs font-semibold text-green-600 mb-1">이전 (얼굴)</p>
-                                <p class="text-xs text-gray-500 -mt-1 mb-1">${sharpDimsText}</p>
-                                <img src="${data.sharpCroppedUrl || data.sharpUrl}" class="w-full rounded-md border" loading="lazy">
-                            </div>
-                            <div class="flex-1 text-center">
-                                <p class="text-xs font-semibold ${isOverridden ? 'text-green-600' : 'text-red-600'} mb-1">${isOverridden ? '문제 (얼굴, 수동OK)' : '문제 (얼굴)'}</p>
-                                <p class="text-xs text-gray-500 -mt-1 mb-1">${blurryDimsText}</p>
-                                <img src="${data.blurryCroppedUrl || data.blurryUrl}" class="w-full rounded-md border" loading="lazy">
-                            </div>
+                    <div class="flex gap-4">
+                        <div class="flex-1 text-center">
+                            <p class="text-xs font-semibold text-green-600 mb-1">이전 프레임</p>
+                            <img src="${data.sharpUrl}" class="w-full rounded-md border" loading="lazy">
+                        </div>
+                        <div class="flex-1 text-center">
+                            <p class="text-xs font-semibold ${isOverridden ? 'text-green-600' : 'text-red-600'} mb-1">${isOverridden ? '문제 프레임 (수동OK)' : '문제 프레임'}</p>
+                            <img src="${data.blurryUrl}" class="w-full rounded-md border" loading="lazy">
                         </div>
                     </div>
-
-                    <!-- Original Size View with Bounding Box -->
-                    <div>
-                        <h5 class="text-sm font-semibold text-gray-600 mb-2">원본 크기 (경계 상자)</h5>
-                        <div class="flex gap-4">
-                            <div class="flex-1 text-center">
-                                 <p class="text-xs text-gray-500 mb-1">이전 프레임</p>
-                                <canvas class="keyframe-canvas bg-gray-200 rounded-md w-full" style="aspect-ratio: 16/9;" data-url="${data.sharpUrl}" data-box='${JSON.stringify(data.sharpBox)}'></canvas>
-                            </div>
-                            <div class="flex-1 text-center">
-                                <p class="text-xs text-gray-500 mb-1">문제 프레임</p>
-                                <canvas class="keyframe-canvas bg-gray-200 rounded-md w-full" style="aspect-ratio: 16/9;" data-url="${data.blurryUrl}" data-box='${JSON.stringify(data.blurryBox)}'></canvas>
-                            </div>
-                        </div>
-                    </div>
-
-                    <button data-analysis-id="${resultData.analysisId}" data-time="${data.time}" data-action="ok" class="manual-override-button w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm ${isOverridden ? 'hidden' : ''}">이 프레임은 문제 없음 (녹색으로 변경)</button>
-                    <button data-analysis-id="${resultData.analysisId}" data-time="${data.time}" data-action="problem" class="manual-override-button w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm ${!isOverridden ? 'hidden' : ''}">문제 프레임으로 되돌리기 (빨간색)</button>
+                    <button data-analysis-id="${resultData.id}" data-time="${data.time}" data-action="ok" class="manual-override-button w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm ${isOverridden ? 'hidden' : ''}">이 프레임은 문제 없음</button>
+                    <button data-analysis-id="${resultData.id}" data-time="${data.time}" data-action="problem" class="manual-override-button w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm ${!isOverridden ? 'hidden' : ''}">문제 프레임으로 되돌리기</button>
                 `;
                 keyFramesContainer.appendChild(pairContainer);
-            });
-            
-            // Draw images and boxes on canvas elements
-            keyFramesContainer.querySelectorAll('.keyframe-canvas').forEach(canvas => {
-                const url = canvas.dataset.url;
-                const box = JSON.parse(canvas.dataset.box);
-                const img = new Image();
-                img.crossOrigin = 'anonymous';
-                img.onload = () => {
-                    const aspectRatio = img.width / img.height;
-                    canvas.width = canvas.offsetWidth;
-                    canvas.height = canvas.offsetWidth / aspectRatio;
-
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    if (box) {
-                        ctx.strokeStyle = 'red';
-                        ctx.lineWidth = 2;
-                        // Scale box coordinates to canvas size
-                        const scaleX = canvas.width / img.naturalWidth;
-                        const scaleY = canvas.height / img.naturalHeight;
-                        ctx.strokeRect(box.x * scaleX, box.y * scaleY, box.width * scaleX, box.height * scaleY);
-                    }
-                };
-                img.src = url;
             });
 
             keyFramesContainer.querySelectorAll('.manual-override-button').forEach(button => {
@@ -592,71 +356,44 @@
         }
 
         async function handleManualCorrection(analysisId, time, action) {
-            if (!allAnalysisData[analysisId]) return;
-            const keyFrame = allAnalysisData[analysisId].keyFrames.find(kf => kf.time === time);
-            if (!keyFrame) return;
+            const docRef = doc(db, 'analyses', analysisId);
+            const docData = allAnalysisData.find(d => d.id === analysisId);
+            if (!docData) return;
 
-            if (action === 'ok') {
-                keyFrame.manualOverride = 'ok';
-            } else { 
-                delete keyFrame.manualOverride;
-            }
-
-            renderDetailedView(analysisId);
+            const updatedKeyFrames = docData.keyFrames.map(kf => {
+                if (kf.time === time) {
+                    if (action === 'ok') {
+                        return { ...kf, manualOverride: 'ok' };
+                    } else {
+                        const { manualOverride, ...rest } = kf;
+                        return rest;
+                    }
+                }
+                return kf;
+            });
 
             try {
-                const mainDataFile = await getFileFromGitHub(GITHUB_CONFIG.mainDataPath);
-                if (!mainDataFile) throw new Error("main.json not found.");
-                
-                await createOrUpdateFileOnGitHub(
-                    GITHUB_CONFIG.mainDataPath, 
-                    JSON.stringify(allAnalysisData, null, 2), 
-                    mainDataFile.sha, 
-                    `Update manual override for ${analysisId}`
-                );
-
-            } catch (err) {
-                 console.error("수동 보정 저장 실패:", err);
-                if (action === 'ok') { delete keyFrame.manualOverride; } else { keyFrame.manualOverride = 'ok'; }
-                renderDetailedView(analysisId);
-                alert("수동 보정 저장에 실패했습니다.");
+                await updateDoc(docRef, { keyFrames: updatedKeyFrames });
+                appendLog(`'${docData.fileName}'의 수동 보정이 저장되었습니다.`, 'text-green-500');
+            } catch(err) {
+                 appendLog(`수동 보정 저장 실패: ${err.message}`, 'text-red-500');
+                 alert("수동 보정 저장에 실패했습니다.");
             }
         }
 
         async function handleDeleteAnalysis(analysisId) {
-            if (!confirm(`'${allAnalysisData[analysisId].fileName}' 기록을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) {
-                return;
-            }
+            const docData = allAnalysisData.find(d => d.id === analysisId);
+            if (!docData) return;
 
-            appendLog(`[DELETE] '${analysisId}' 삭제 시작...`, 'text-yellow-400');
+            if (!confirm(`'${docData.fileName}' 기록을 삭제하시겠습니까?`)) return;
             
-            const originalData = { ...allAnalysisData };
-            delete allAnalysisData[analysisId];
-
-            if (detailsTitle.textContent.includes(originalData[analysisId]?.fileName)) {
-                detailsSection.classList.add('hidden');
-            }
-            
-            renderAnalysisResultsList();
-
             try {
-                const mainDataFile = await getFileFromGitHub(GITHUB_CONFIG.mainDataPath);
-                if (!mainDataFile) throw new Error("main.json 파일을 찾을 수 없어 삭제를 완료할 수 없습니다.");
-                
-                await createOrUpdateFileOnGitHub(
-                    GITHUB_CONFIG.mainDataPath,
-                    JSON.stringify(allAnalysisData, null, 2),
-                    mainDataFile.sha,
-                    `Delete analysis: ${analysisId}`
-                );
-                
-                appendLog(`[DELETE] '${analysisId}' 기록이 성공적으로 삭제되었습니다.`, 'text-green-500');
-
-            } catch (err) {
-                appendLog(`[DELETE] GitHub에서 기록 삭제 실패: ${err.message}`, 'text-red-500');
-                allAnalysisData = originalData; // Revert local state
-                renderAnalysisResultsList();
-                alert('GitHub에서 기록 삭제에 실패했습니다. 페이지를 새로고침하여 최신 데이터를 확인해주세요.');
+                await deleteDoc(doc(db, "analyses", analysisId));
+                appendLog(`'${docData.fileName}' 기록이 삭제되었습니다.`, 'text-green-500');
+                detailsSection.classList.add('hidden');
+            } catch(err) {
+                 appendLog(`기록 삭제 실패: ${err.message}`, 'text-red-500');
+                 alert("기록 삭제에 실패했습니다.");
             }
         }
 
@@ -669,8 +406,6 @@
             if (videoFiles.length === 0) { alert('먼저 분석할 영상 파일을 선택해주세요.'); return; }
             loadingIndicator.style.display = 'flex';
             analyzeButton.disabled = true;
-            logContainer.innerHTML = '<p id="log-placeholder" class="text-gray-400 text-center py-4">분석을 시작합니다...</p>';
-            detailsSection.classList.add('hidden');
             
             const threshold = parseFloat(thresholdSlider.value);
             const analysisVideo = document.createElement('video');
@@ -680,11 +415,7 @@
             
             for (let i = 0; i < videoFiles.length; i++) {
                 const file = videoFiles[i];
-                const cleanFileNameForId = file.name.replace(/[^a-zA-Z0-9]/g, '_');
-                const analysisId = `${cleanFileNameForId}_${new Date().toISOString()}`;
-                
-                let liveLogContent = `[START] '${file.name}' 분석을 시작합니다. (ID: ${analysisId})\n`;
-                appendLog(`> [START] '${file.name}' 분석 (ID: ${analysisId})`, 'text-cyan-400');
+                progressText.textContent = `(${i+1}/${videoFiles.length}) '${file.name}' 분석 중...`;
                 
                 const fileURL = URL.createObjectURL(file);
                 analysisVideo.src = fileURL;
@@ -692,8 +423,8 @@
                 const duration = await new Promise(resolve => { analysisVideo.onloadedmetadata = () => resolve(analysisVideo.duration); });
                 
                 const frameScores = [];
-                let previousFrameState = { status: '미검출', dataURL: null, faceDataURL: null, box: null };
-                const keyFramesToUpload = [];
+                let previousFrameState = { status: '미검출' };
+                const keyFramesData = [];
                 const SAMPLING_INTERVAL_SECONDS = 0.5;
                 const totalSamples = Math.floor(duration / SAMPLING_INTERVAL_SECONDS);
                 
@@ -702,19 +433,16 @@
                     progressText.textContent = `분석 중... (${i + 1}/${videoFiles.length}) - ${file.name} (샘플 ${j + 1}/${totalSamples})`;
                     await new Promise(resolve => { analysisVideo.onseeked = () => resolve(); analysisVideo.currentTime = currentTime; });
                     
-                    const allDetections = await faceapi.detectAllFaces(analysisVideo, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5 }));
-                    const centermostFace = getCentermostFace(allDetections, analysisVideo.videoWidth, analysisVideo.videoHeight);
+                    const detections = await faceapi.detectAllFaces(analysisVideo, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5 }));
+                    const centermostFace = getCentermostFace(detections, analysisVideo.videoWidth, analysisVideo.videoHeight);
                     
-                    let logLine = `Time: ${currentTime.toFixed(2)}s |`;
                     let currentStatus = '미검출';
                     
                     analysisCanvas.width = analysisVideo.videoWidth; 
                     analysisCanvas.height = analysisVideo.videoHeight;
                     analysisCtx.drawImage(analysisVideo, 0, 0, analysisCanvas.width, analysisCanvas.height);
-                    const fullFrameDataURL = analysisCanvas.toDataURL('image/jpeg', 0.8);
                     
                     let currentBox = null;
-                    let faceDataURL = null;
 
                     if (centermostFace) {
                         const { x, y, width, height } = centermostFace.box;
@@ -722,91 +450,54 @@
                         const faceImageData = analysisCtx.getImageData(x, y, width, height);
                         const score = calculateFocusScore(faceImageData);
                         const isBlurry = score < threshold;
-                        
                         currentStatus = isBlurry ? '흐림' : '선명';
-                        logLine += ` Score: ${score.toFixed(2)} | Status: ${currentStatus}`;
-
-                        const cropCanvas = document.createElement('canvas');
-                        cropCanvas.width = width; cropCanvas.height = height;
-                        cropCanvas.getContext('2d').putImageData(faceImageData, 0, 0);
-                        faceDataURL = cropCanvas.toDataURL('image/jpeg', 0.8);
-
                         frameScores.push({ time: currentTime, score });
-                    } else {
-                        logLine += ' Status: 미검출';
                     }
 
                     if (currentStatus === '흐림' && (previousFrameState.status === '선명' || previousFrameState.status === '미검출')) {
-                        logLine += ` (문제 감지: ${previousFrameState.status} → 흐림)`;
-                        keyFramesToUpload.push({
+                         keyFramesData.push({
                             time: currentTime,
-                            sharpFrameUrl: previousFrameState.dataURL,
-                            blurryFrameUrl: fullFrameDataURL,
-                            sharpCroppedUrl: previousFrameState.faceDataURL,
-                            blurryCroppedUrl: faceDataURL,
-                            sharpBox: previousFrameState.box,
-                            blurryBox: currentBox
-                        });
-                        previousFrameState = { status: '흐림', dataURL: fullFrameDataURL, faceDataURL, box: currentBox }; 
-                    } else {
-                         previousFrameState = { status: currentStatus, dataURL: fullFrameDataURL, faceDataURL, box: currentBox };
+                            sharpFrameData: previousFrameState.dataURL, 
+                            blurryFrameData: analysisCanvas.toDataURL('image/jpeg', 0.8)
+                         });
                     }
-
-                    appendLog(logLine);
-                    liveLogContent += logLine + '\n';
+                    
+                    previousFrameState = { 
+                        status: currentStatus, 
+                        dataURL: analysisCanvas.toDataURL('image/jpeg', 0.8) 
+                    };
                 }
                 
+                // Upload assets in parallel
+                progressText.textContent = `(${i+1}/${videoFiles.length}) '${file.name}' 에셋 업로드 중...`;
+                const uploadPromises = keyFramesData.map(async (kf, index) => {
+                    const sharpFileName = `${file.name}_${kf.time.toFixed(2)}s_sharp.jpeg`;
+                    const blurryFileName = `${file.name}_${kf.time.toFixed(2)}s_blurry.jpeg`;
+                    const sharpUrl = await uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${sharpFileName}`, kf.sharpFrameData, true);
+                    const blurryUrl = await uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${blurryFileName}`, kf.blurryFrameData, true);
+                    return { ...kf, sharpUrl, blurryUrl };
+                });
+
+                const uploadedKeyFrames = await Promise.all(uploadPromises);
+
                 const detectedFrameCount = frameScores.length;
                 const totalScore = frameScores.reduce((sum, frame) => sum + frame.score, 0);
-                const blurryFrameCount = frameScores.filter(f => f.score < threshold).length;
-                const blurryPercentage = detectedFrameCount > 0 ? (blurryFrameCount / detectedFrameCount) * 100 : 0;
+                const avgScore = detectedFrameCount > 0 ? totalScore / detectedFrameCount : 0;
                 
-                const uploadPromises = [];
-                uploadPromises.push(uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}${analysisId}/log.txt`, liveLogContent, false));
-                
-                for(const kf of keyFramesToUpload) {
-                    const cleanFileName = file.name.split('.').slice(0, -1).join('');
-                    uploadPromises.push(
-                        uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}${analysisId}/${cleanFileName}_${kf.time.toFixed(2)}s_sharp.jpeg`, kf.sharpFrameUrl, true).then(url => ({type: 'sharp', time: kf.time, url})),
-                        uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}${analysisId}/${cleanFileName}_${kf.time.toFixed(2)}s_blurry.jpeg`, kf.blurryFrameUrl, true).then(url => ({type: 'blurry', time: kf.time, url}))
-                    );
-                    if (kf.sharpCroppedUrl) uploadPromises.push(uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${cleanFileName}_${kf.time.toFixed(2)}s_sharp_crop.jpeg`, kf.sharpCroppedUrl, true).then(url => ({type: 'sharpCropped', time: kf.time, url})));
-                    if (kf.blurryCroppedUrl) uploadPromises.push(uploadFileToGitHub(`${GITHUB_CONFIG.assetsPath}/${analysisId}/${cleanFileName}_${kf.time.toFixed(2)}s_blurry_crop.jpeg`, kf.blurryCroppedUrl, true).then(url => ({type: 'blurryCropped', time: kf.time, url})));
-                }
-
-                const assetResults = await Promise.all(uploadPromises);
-                
-                const uploadedKeyFrames = keyFramesToUpload.map(kf => {
-                    return {
-                        time: kf.time,
-                        sharpUrl: assetResults.find(r => r.time === kf.time && r.type === 'sharp')?.url,
-                        blurryUrl: assetResults.find(r => r.time === kf.time && r.type === 'blurry')?.url,
-                        sharpCroppedUrl: assetResults.find(r => r.time === kf.time && r.type === 'sharpCropped')?.url || assetResults.find(r => r.time === kf.time && r.type === 'sharp')?.url,
-                        blurryCroppedUrl: assetResults.find(r => r.time === kf.time && r.type === 'blurryCropped')?.url || assetResults.find(r => r.time === kf.time && r.type === 'blurry')?.url,
-                        sharpBox: kf.sharpBox,
-                        blurryBox: kf.blurryBox
-                    };
-                });
-                
-                const newAnalysisData = {
-                    analysisId, timestamp: new Date().toISOString(), fileName: file.name,
-                    avgScore: detectedFrameCount > 0 ? totalScore / detectedFrameCount : 0,
-                    problematic: keyFramesToUpload.length > 0, blurryPercentage, frameScores, 
-                    keyFrames: uploadedKeyFrames
+                const newAnalysis = {
+                    fileName: file.name,
+                    timestamp: serverTimestamp(),
+                    avgScore,
+                    problematic: uploadedKeyFrames.length > 0,
+                    frameScores,
+                    keyFrames: uploadedKeyFrames.map(kf => ({ time: kf.time, sharpUrl: kf.sharpUrl, blurryUrl: kf.blurryUrl })),
                 };
 
-                await createOrUpdateFileOnGitHub(
-                    `${GITHUB_CONFIG.pendingPath}${analysisId}.json`,
-                    JSON.stringify({[analysisId]: newAnalysisData}, null, 2),
-                    null,
-                    `Add pending analysis: ${analysisId}`
-                );
-                
+                await addDoc(collection(db, "analyses"), newAnalysis);
+                appendLog(`'${file.name}' 분석 완료 및 결과 저장.`, 'text-green-500');
                 URL.revokeObjectURL(fileURL);
-                appendLog(`> [END] '${file.name}' 분석 완료. 결과가 처리 대기열에 추가되었습니다.`, 'text-green-500');
             }
             
-            appendLog('모든 분석이 대기열에 추가되었습니다. GitHub Actions가 곧 데이터를 처리할 것입니다.', 'text-cyan-400');
             loadingIndicator.style.display = 'none';
             analyzeButton.disabled = false;
             videoFiles = [];
@@ -827,7 +518,7 @@
             });
         }
 
-        window.onload = initializeApp;
+        window.onload = startApp;
 
     </script>
 </body>
