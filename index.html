@@ -3,803 +3,434 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>포커스 이슈 탐지기 - Ver 0.91 (최종 안정화)</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>동영상 장면별 얼굴 흐림 분석기</title>
+    <!-- face-api.js 로드 -->
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <!-- Tailwind CSS CDN 로드 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts (Inter) 로드 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Noto Sans KR', sans-serif; scroll-behavior: smooth; }
-        .loader { border: 5px solid #f3f3f3; border-top: 5px solid #3498db; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .result-item:hover { background-color: #f0f9ff; }
-        .result-item.selected { background-color: #dbeafe; }
-        #custom-modal-overlay { background-color: rgba(0, 0, 0, 0.5); }
+        body { font-family: 'Inter', 'Noto Sans KR', sans-serif; }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 4px solid #3498db;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* 동영상 플레이어는 분석용으로만 사용되므로 숨김 */
+        #video-player { display: none; }
+        #log-container {
+            max-height: 300px;
+            overflow-y: auto;
+            background-color: #1f2937; /* bg-gray-800 */
+            color: #d1d5db; /* text-gray-300 */
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.875rem; /* text-sm */
+            padding: 1rem; /* p-4 */
+            border-radius: 0.5rem; /* rounded-lg */
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
 
-    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
-        <header class="relative text-center mb-8 py-4">
-            <h1 class="text-2xl md:text-3xl font-bold text-gray-900">
-                포커스 이슈 탐지기
-                <span id="version-display" class="text-base align-middle text-blue-600 font-semibold"></span>
-            </h1>
-            <p id="connection-status" class="text-sm text-gray-500 mt-1">연결 상태: 확인 중...</p>
-            <p id="model-status" class="text-sm text-yellow-600 mt-1">인식 모델 로딩 중...</p>
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-5xl">
+        <!-- 앱 제목 및 설명 -->
+        <header class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">동영상 장면별 얼굴 흐림 분석기</h1>
+            <p class="mt-2 text-lg text-gray-600">프레임 간 얼굴의 흐림(초점) 변화가 큰 지점을 감지하여 분석합니다.</p>
+            <p id="model-status" class="mt-2 text-sm text-yellow-600">얼굴 인식 모델을 로딩 중입니다...</p>
         </header>
-        
-        <main class="space-y-8">
-            <!-- Control Panel -->
-            <div class="bg-white p-6 rounded-2xl shadow-lg">
-                <h2 class="text-xl font-semibold mb-4 border-b pb-2">1. 제어 패널</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+
+        <main>
+            <!-- 분석 설정 섹션 -->
+            <div class="bg-white p-6 rounded-xl shadow-md mb-8">
+                <h2 class="text-xl font-semibold mb-4 text-gray-800">분석 설정</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                     <div>
-                        <label for="video-files-input" class="block text-sm font-medium text-gray-700 mb-1">영상 파일 선택</label>
-                        <input type="file" id="video-files-input" multiple accept="video/mp4,video/quicktime,.mov" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"/>
+                        <label for="fps-slider" class="block text-sm font-medium text-gray-700">분석 프레임 (FPS): <span id="fps-value" class="font-bold">5</span></label>
+                        <input id="fps-slider" type="range" min="1" max="15" value="5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer mt-1">
                     </div>
-                     <div class="space-y-2">
-                        <label for="threshold-slider" class="block text-sm font-medium text-gray-700">흐림 기준값 (낮을수록 민감)</label>
-                        <div class="flex items-center gap-2">
-                            <input type="range" id="threshold-slider" min="0" max="200" value="30" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
-                            <span id="threshold-value" contenteditable="true" class="font-bold text-lg text-blue-600 w-16 text-center cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md px-1">30</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="mt-6 text-center">
-                     <button id="analyze-button" class="w-full md:w-auto bg-green-600 text-white font-bold py-3 px-12 rounded-full hover:bg-green-700 transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed">
-                        분석 시작
-                    </button>
-                    <div id="loading-indicator" class="hidden mt-4 flex flex-col items-center">
-                        <div class="loader"></div>
-                        <p id="progress-text" class="text-gray-600 mt-2"></p>
-                        <div id="upload-progress-container" class="w-full mt-4 hidden">
-                             <div class="w-full bg-gray-200 rounded-full h-4">
-                                <div id="upload-progress-bar" class="bg-blue-600 h-4 rounded-full text-xs font-medium text-white text-center leading-4 transition-all duration-300" style="width: 0%"></div>
-                            </div>
-                        </div>
-                        <button id="cancel-upload-btn" class="hidden mt-4 bg-red-600 text-white font-bold py-2 px-6 rounded-full hover:bg-red-700 transition">
-                            분석 중단
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Analysis History -->
-            <div class="bg-white p-6 rounded-2xl shadow-lg">
-                 <h2 class="text-xl font-semibold mb-4 border-b pb-2">2. 분석 기록</h2>
-                 <div id="results-list-container" class="space-y-1">
-                     <p id="results-list-placeholder" class="text-gray-500 text-center py-4">인증이 완료되면 기록을 불러옵니다...</p>
-                 </div>
-                 <div id="pagination-controls" class="pt-4 mt-4 border-t flex justify-center gap-2"></div>
-            </div>
-
-            <!-- Details Section -->
-            <div id="details-section" class="hidden space-y-8">
-                <div class="bg-white p-6 rounded-2xl shadow-lg">
-                      <h2 id="details-title" class="text-xl font-semibold mb-4 border-b pb-2 flex justify-between items-center">
-                        <span>3. 상세 분석 그래프</span>
-                        <button id="export-csv-btn" class="text-sm bg-blue-500 text-white font-semibold py-1 px-3 rounded-full hover:bg-blue-600 transition">CSV로 내보내기</button>
-                      </h2>
-                      <p class="text-sm text-gray-600 mb-2 -mt-2">그래프 위 빨간 점에 마우스를 올리면 주요 프레임을 확인할 수 있습니다.</p>
-                      <div id="chart-container" class="relative h-48 md:h-64">
-                          <canvas id="detail-chart"></canvas>
-                      </div>
-                </div>
-                 <div class="bg-white p-6 rounded-2xl shadow-lg">
-                    <h2 class="text-xl font-semibold mb-4 border-b pb-2">4. 주요 프레임 보기</h2>
-                    <div id="key-frames-container" class="space-y-4">
-                        <p id="key-frames-placeholder" class="text-gray-500 text-center py-4">이 분석에는 감지된 문제 프레임이 없거나, 아직 기록이 선택되지 않았습니다.</p>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Log Container -->
-            <div class="bg-white p-6 rounded-2xl shadow-lg">
-                <h2 class="text-xl font-semibold mb-4 border-b pb-2">실시간 분석 로그</h2>
-                <div id="log-container" class="min-h-[10rem] max-h-[50rem] overflow-y-auto bg-gray-900 text-white font-mono rounded-lg p-4 border text-sm"><p id="log-placeholder" class="text-gray-400 text-center py-4">분석을 시작하거나 과거 기록을 선택하면 로그가 표시됩니다.</p></div>
-            </div>
-        </main>
-    </div>
-
-    <!-- Custom Modal for Confirmation -->
-    <div id="custom-modal-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center transition-opacity duration-300">
-        <div id="custom-modal" class="bg-white rounded-lg shadow-xl p-6 w-11/12 max-w-md transform transition-transform duration-300 scale-95">
-            <h3 id="modal-title" class="text-lg font-bold text-gray-900">확인</h3>
-            <p id="modal-message" class="mt-2 text-sm text-gray-600">이 작업을 정말로 수행하시겠습니까?</p>
-            <div class="mt-6 flex justify-end space-x-3">
-                <button id="modal-cancel-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">취소</button>
-                <button id="modal-confirm-btn" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">확인</button>
-            </div>
-        </div>
-    </div>
-
-    <script type="module">
-        // Firebase 11.x SDK
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
-
-        const APP_VERSION = "0.91";
-        document.title = `포커스 이슈 탐지기 - Ver ${APP_VERSION}`;
-        document.getElementById('version-display').textContent = `Ver ${APP_VERSION}`;
-        
-        // --- DOM References ---
-        const connectionStatus = document.getElementById('connection-status');
-        const modelStatus = document.getElementById('model-status');
-        const videoFilesInput = document.getElementById('video-files-input');
-        const thresholdSlider = document.getElementById('threshold-slider');
-        const thresholdValueEl = document.getElementById('threshold-value');
-        const analyzeButton = document.getElementById('analyze-button');
-        const loadingIndicator = document.getElementById('loading-indicator');
-        const progressText = document.getElementById('progress-text');
-        const uploadProgressContainer = document.getElementById('upload-progress-container');
-        const uploadProgressBar = document.getElementById('upload-progress-bar');
-        const cancelUploadBtn = document.getElementById('cancel-upload-btn');
-        const resultsListContainer = document.getElementById('results-list-container');
-        const resultsListPlaceholder = document.getElementById('results-list-placeholder');
-        const paginationControls = document.getElementById('pagination-controls');
-        const detailsSection = document.getElementById('details-section');
-        const detailsTitle = document.getElementById('details-title');
-        const detailChartCanvas = document.getElementById('detail-chart');
-        const logContainer = document.getElementById('log-container');
-        const keyFramesContainer = document.getElementById('key-frames-container');
-        const exportCsvBtn = document.getElementById('export-csv-btn');
-
-        // --- Global State ---
-        let videoFiles = [];
-        let modelsLoaded = false;
-        const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
-        let allAnalysisData = [];
-        let detailChart = null;
-        let currentPage = 1;
-        const ITEMS_PER_PAGE = 20;
-        let analysisController = null; // To control cancellation
-
-        // --- Firebase State ---
-        let app, auth, db, storage;
-        let unsubscribeFromAnalyses = null;
-
-        // --- UI & Log Functions ---
-        function appendLog(message, colorClass = 'text-gray-400') {
-            if (logContainer.querySelector("#log-placeholder")) logContainer.innerHTML = '';
-            const logEntry = document.createElement('div');
-            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-            logEntry.className = colorClass;
-            logContainer.appendChild(logEntry);
-            logContainer.scrollTop = logContainer.scrollHeight;
-        }
-
-        function appendImageLog(data) {
-            const logEntry = document.createElement('div');
-            logEntry.className = 'p-2 my-2 border border-gray-700 rounded-md';
-            const sharpScoreText = data.sharpScore !== null ? data.sharpScore.toFixed(2) : 'N/A';
-            const blurryScoreText = data.blurryScore !== null ? data.blurryScore.toFixed(2) : 'N/A';
-
-            logEntry.innerHTML = `
-                <p class="text-sm font-semibold text-yellow-400">문제 프레임 감지 @ ${data.time.toFixed(2)}초</p>
-                <div class="grid grid-cols-2 gap-2 mt-1">
+                    <div></div> <!-- Empty grid cell for alignment -->
                     <div>
-                        <p class="text-xs text-green-400 mb-1">이전 프레임 (전체) - 점수: ${sharpScoreText}</p>
-                        <img src="${data.sharpFull}" class="w-full rounded">
-                    </div>
-                    <div>
-                        <p class="text-xs text-green-400 mb-1">이전 프레임 (얼굴)</p>
-                        <img src="${data.sharpCropped || 'https://placehold.co/300x200/1f2937/4b5563?text=No+Face'}" class="w-full rounded">
-                    </div>
-                    <div>
-                        <p class="text-xs text-red-400 mb-1">문제 프레임 (전체) - 점수: ${blurryScoreText}</p>
-                        <img src="${data.blurryFull}" class="w-full rounded">
+                        <label for="laplacian-threshold-input" class="block text-sm font-medium text-gray-700">라플라시안 민감도</label>
+                        <input id="laplacian-threshold-input" type="number" step="1" value="50" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                     </div>
                      <div>
-                        <p class="text-xs text-red-400 mb-1">문제 프레임 (얼굴)</p>
-                        <img src="${data.blurryCropped || 'https://placehold.co/300x200/1f2937/4b5563?text=No+Face'}" class="w-full rounded">
+                        <label for="tenengrad-threshold-input" class="block text-sm font-medium text-gray-700">테넨그라드 민감도</label>
+                        <input id="tenengrad-threshold-input" type="number" step="1" value="50" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                    </div>
+                     <div>
+                        <label for="brenner-threshold-input" class="block text-sm font-medium text-gray-700">브레너 민감도</label>
+                        <input id="brenner-threshold-input" type="number" step="100" value="5000" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                     </div>
                 </div>
-            `;
-            logContainer.appendChild(logEntry);
-            logContainer.scrollTop = logContainer.scrollHeight;
-        }
+            </div>
 
-        // --- Custom Modal Logic ---
-        const modalOverlay = document.getElementById('custom-modal-overlay');
-        const modal = document.getElementById('custom-modal');
-        const modalTitle = document.getElementById('modal-title');
-        const modalMessage = document.getElementById('modal-message');
-        const modalCancelBtn = document.getElementById('modal-cancel-btn');
-        const modalConfirmBtn = document.getElementById('modal-confirm-btn');
-        let modalResolve = null;
+            <!-- 동영상 업로드 섹션 -->
+            <div class="bg-white p-6 rounded-xl shadow-md mb-8">
+                <label for="video-upload" class="block text-lg font-medium text-gray-700 mb-2">동영상 선택</label>
+                <div id="drop-zone" class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                    <div class="space-y-1 text-center">
+                         <svg class="mx-auto h-12 w-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9A2.25 2.25 0 0 0 13.5 5.25h-9A2.25 2.25 0 0 0 2.25 7.5v9A2.25 2.25 0 0 0 4.5 18.75Z" /></svg>
+                        <div class="flex text-sm text-gray-600">
+                            <label for="video-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500"><span>파일 업로드</span><input id="video-upload" name="video-upload" type="file" class="sr-only" accept="video/*" disabled></label>
+                            <p class="pl-1">또는 파일을 끌어다 놓으세요</p>
+                        </div>
+                        <p class="text-xs text-gray-500">MP4, WebM, OGG 등 브라우저 지원 동영상</p>
+                    </div>
+                </div>
+            </div>
 
-        function showConfirmationModal(title, message) {
-            modalTitle.textContent = title;
-            modalMessage.textContent = message;
-            modalOverlay.classList.remove('hidden');
-            setTimeout(() => modal.classList.remove('scale-95'), 10);
-            return new Promise(resolve => { modalResolve = resolve; });
-        }
-
-        function closeModal(result) {
-            modal.classList.add('scale-95');
-            setTimeout(() => modalOverlay.classList.add('hidden'), 300);
-            if (modalResolve) { modalResolve(result); modalResolve = null; }
-        }
-        modalCancelBtn.addEventListener('click', () => closeModal(false));
-        modalConfirmBtn.addEventListener('click', () => closeModal(true));
-        modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(false); });
-
-        // --- Initialization & Firebase Connection Management ---
-        async function startApp() {
-            const firebaseConfig = {
-                apiKey: "AIzaSyAyTh3kG9pPcgqcs-MHXSBKFgY_gnRWae0",
-                authDomain: "analyze-frame-focus.firebaseapp.com",
-                projectId: "analyze-frame-focus",
-                storageBucket: "analyze-frame-focus.appspot.com",
-                messagingSenderId: "995861796391",
-                appId: "1:995861796391:web:549944764ca046594c2002",
-                measurementId: "G-8GCL3Z7W9C"
-            };
-            
-            document.querySelector('.bg-white.p-6.rounded-2xl.shadow-lg details')?.closest('.bg-white').style.display = 'none';
-
-            try {
-                app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-                storage = getStorage(app);
-                
-                connectionStatus.textContent = `연결 상태: 연결 성공 (${firebaseConfig.projectId})`;
-                connectionStatus.className = 'text-sm text-green-600 mt-1';
-                appendLog(`Firebase 연결 성공 (Project: ${firebaseConfig.projectId})`, 'text-green-500');
-
-                onAuthStateChanged(auth, async (user) => {
-                    if (user) {
-                        appendLog(`인증 완료 (UID: ${user.uid})`, 'text-green-500');
-                        listenForDataChanges();
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                });
-
-            } catch (e) {
-                connectionStatus.textContent = '오류: Firebase 초기화 실패.';
-                connectionStatus.className = 'text-sm text-red-600 mt-1';
-                appendLog(`Firebase 초기화 오류: ${e.message}`, 'text-red-500');
-                analyzeButton.disabled = true;
-            }
-
-            await loadFaceApiModels();
-        }
+            <!-- 분석 상태 및 결과 섹션 -->
+            <div id="result-section" class="hidden">
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <div id="status-container" class="text-center mb-6">
+                        <div id="loader" class="flex justify-center items-center"><div class="loader"></div></div>
+                        <p id="status-text" class="mt-4 text-lg font-medium text-gray-700">동영상 분석 중...</p>
+                        <div class="w-full bg-gray-200 rounded-full h-2.5 mt-2"><div id="progress-bar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div></div>
+                    </div>
+                    <details class="mb-6"><summary class="font-semibold cursor-pointer text-gray-700">프레임별 분석 로그 보기</summary><div id="log-container" class="mt-2"></div></details>
+                    <h2 class="text-xl font-semibold mb-4 text-center border-t pt-6">분석 결과</h2>
+                    <div id="scene-results-container" class="space-y-6"></div>
+                    <div id="no-scene-message" class="hidden text-center text-gray-500 py-8"><p>분석 가능한 장면을 찾지 못했습니다.</p></div>
+                </div>
+            </div>
+        </main>
         
-        async function loadFaceApiModels() {
-            if (modelsLoaded) return;
+        <video id="video-player"></video>
+        <canvas id="frame-canvas" class="hidden"></canvas>
+    </div>
+
+    <script>
+        // --- DOM 요소 ---
+        const videoUpload = document.getElementById('video-upload');
+        const videoPlayer = document.getElementById('video-player');
+        const frameCanvas = document.getElementById('frame-canvas');
+        const frameCtx = frameCanvas.getContext('2d', { willReadFrequently: true });
+        const resultSection = document.getElementById('result-section');
+        const loader = document.getElementById('loader');
+        const modelStatus = document.getElementById('model-status');
+        const statusText = document.getElementById('status-text');
+        const progressBar = document.getElementById('progress-bar');
+        const sceneResultsContainer = document.getElementById('scene-results-container');
+        const noSceneMessage = document.getElementById('no-scene-message');
+        const dropZone = document.getElementById('drop-zone');
+        const logContainer = document.getElementById('log-container');
+        const fpsSlider = document.getElementById('fps-slider');
+        const fpsValue = document.getElementById('fps-value');
+        const laplacianThresholdInput = document.getElementById('laplacian-threshold-input');
+        const tenengradThresholdInput = document.getElementById('tenengrad-threshold-input');
+        const brennerThresholdInput = document.getElementById('brenner-threshold-input');
+
+        // --- 모델 로드 ---
+        async function loadModels() {
+            const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
             try {
                 await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-                modelsLoaded = true;
-                modelStatus.textContent = '얼굴 인식 모델 로딩 완료!';
-                modelStatus.className = 'text-sm text-green-600 mt-1';
-                updateAnalyzeButtonState();
+                modelStatus.textContent = '모델 로딩 완료! 동영상을 업로드하세요.';
+                modelStatus.classList.replace('text-yellow-600', 'text-green-600');
+                videoUpload.disabled = false;
             } catch (error) {
-                modelStatus.textContent = '모델 로딩 실패';
-                appendLog(`모델 로딩 실패: ${error.message}`, 'text-red-500');
+                modelStatus.textContent = '모델 로딩 실패. 페이지를 새로고침 해주세요.';
+                modelStatus.classList.replace('text-yellow-600', 'text-red-600');
+                console.error("Face-api model loading failed:", error);
             }
         }
-        
-        function listenForDataChanges() {
-            if (unsubscribeFromAnalyses) unsubscribeFromAnalyses();
+        loadModels();
 
-            const analysesColPath = `public_data/shared_documents/analyses`;
-            unsubscribeFromAnalyses = onSnapshot(collection(db, analysesColPath), (snapshot) => {
-                allAnalysisData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                allAnalysisData.sort((a, b) => (b.timestamp?.seconds ?? 0) - (a.timestamp?.seconds ?? 0));
-                renderAnalysisResultsList();
-            }, (error) => {
-                appendLog(`DB 데이터 수신 오류: ${error.code} - ${error.message}`, 'text-red-500');
-            });
-        }
-
-        function updateAnalyzeButtonState() { 
-            analyzeButton.disabled = videoFiles.length === 0 || !modelsLoaded; 
-        }
-
-        // --- Helper Function to convert Data URL to Blob ---
-        function dataURLtoBlob(dataurl) {
-            if (!dataurl) return null;
-            const arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1];
-            const bstr = atob(arr[1]);
-            let n = bstr.length;
-            const u8arr = new Uint8Array(n);
-            while(n--){
-                u8arr[n] = bstr.charCodeAt(n);
-            }
-            return new Blob([u8arr], {type:mime});
-        }
-
-        // --- Core Logic & Render Functions ---
-        function calculateFocusScore(imageData) {
-            const { width, height, data } = imageData; if (width === 0 || height === 0) return 0; const gray = new Uint8Array(width * height); for (let i = 0; i < data.length; i += 4) { gray[i / 4] = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2]; } let laplacianMean = 0; const laplacianValues = []; for (let y = 1; y < height - 1; y++) { for (let x = 1; x < width - 1; x++) { const i = y * width + x; const laplacian = gray[i - width] + gray[i + width] + gray[i - 1] + gray[i + 1] - 4 * gray[i]; laplacianValues.push(laplacian); laplacianMean += laplacian; } } if (laplacianValues.length === 0) return 0; laplacianMean /= laplacianValues.length; return laplacianValues.reduce((acc, val) => acc + Math.pow(val - laplacianMean, 2), 0) / laplacianValues.length;
-        }
-
-        function getCentermostFace(detections, videoWidth, videoHeight) {
-            if (!detections || detections.length === 0) return null; if (detections.length === 1) return detections[0]; const frameCenterX = videoWidth / 2, frameCenterY = videoHeight / 2; let centermostFace = null, minDistance = Infinity; for (const detection of detections) { const faceCenterX = detection.box.x + detection.box.width / 2; const faceCenterY = detection.box.y + detection.box.height / 2; const distance = Math.sqrt(Math.pow(frameCenterX - faceCenterX, 2) + Math.pow(frameCenterY - faceCenterY, 2)); if (distance < minDistance) { minDistance = distance; centermostFace = detection; } } return centermostFace;
-        }
-
-        function getCroppedFaceDataURL(canvas, box) {
-            if (!box) return null;
-            const { x, y, width, height } = box;
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = width;
-            tempCanvas.height = height;
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCtx.drawImage(canvas, x, y, width, height, 0, 0, width, height);
-            return tempCanvas.toDataURL('image/jpeg', 0.8);
-        }
-
-        function renderAnalysisResultsList() {
-            resultsListPlaceholder.classList.add('hidden');
-            resultsListContainer.innerHTML = '';
-            
-            if (allAnalysisData.length === 0) {
-                resultsListPlaceholder.textContent = '저장된 분석 기록이 없습니다.';
-                resultsListPlaceholder.classList.remove('hidden');
-                paginationControls.innerHTML = '';
-                return;
-            }
-
-            const totalPages = Math.ceil(allAnalysisData.length / ITEMS_PER_PAGE);
-            currentPage = Math.min(currentPage, totalPages);
-            const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-            const paginatedData = allAnalysisData.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-
-            paginatedData.forEach((data) => {
-                const item = document.createElement('div');
-                item.className = 'result-item p-3 border-b flex justify-between items-center cursor-pointer transition-colors duration-200';
-                item.dataset.analysisId = data.id;
-                const dateString = data.timestamp ? new Date(data.timestamp.seconds * 1000).toLocaleString() : '날짜 없음';
-                const problemCount = (data.keyFrames || []).filter(kf => kf.manualOverride !== 'ok').length;
-                
-                item.innerHTML = `
-                    <div class="flex-grow overflow-hidden">
-                        <p class="font-medium text-gray-800 truncate text-sm" title="${data.fileName}">${data.fileName}</p>
-                        <p class="text-xs text-gray-500">${dateString}</p>
-                    </div>
-                    <div class="flex items-center ml-2">
-                        <div class="text-sm font-semibold ${problemCount > 0 ? 'text-red-500' : 'text-green-600'} w-28 text-right">문제 프레임: ${problemCount}개</div>
-                        <button class="delete-analysis-button ml-4 text-gray-400 hover:text-red-600 p-2 rounded-full hover:bg-red-100 transition-colors">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" class="pointer-events-none">
-                                <path d="M11 1.5v1h3.5a.5.5 0 0 1 0 1h-.538l-.853 10.66A2 2 0 0 1 11.115 16h-6.23a2 2 0 0 1-1.994-1.84L2.038 3.5H1.5a.5.5 0 0 1 0-1H5v-1A1.5 1.5 0 0 1 6.5 0h3A1.5 1.5 0 0 1 11 1.5m-5 0v1h4v-1a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5M4.5 5.029l.5 8.5a.5.5 0 1 0 .998-.06l-.5-8.5a.5.5 0 1 0-.998.06m3.5.029l.5 8.5a.5.5 0 1 0 .998-.06l-.5-8.5a.5.5 0 1 0-.998.06m3.5-.029l.5 8.5a.5.5 0 1 0 .998-.06l-.5-8.5a.5.5 0 1 0-.998.06"/>
-                            </svg>
-                        </button>
-                    </div>`;
-                resultsListContainer.appendChild(item);
-            });
-
-            resultsListContainer.querySelectorAll('.result-item').forEach(item => {
-                item.addEventListener('click', (e) => {
-                    if (e.target.closest('.delete-analysis-button')) return;
-                    resultsListContainer.querySelectorAll('.result-item').forEach(r => r.classList.remove('selected'));
-                    item.classList.add('selected');
-                    const analysisId = e.currentTarget.dataset.analysisId;
-                    renderDetailedView(analysisId);
-                    detailsSection.scrollIntoView({ behavior: 'smooth' });
-                });
-            });
-            
-            resultsListContainer.querySelectorAll('.delete-analysis-button').forEach(button => {
-                button.addEventListener('click', (e) => {
-                    e.stopPropagation(); 
-                    const analysisId = e.currentTarget.closest('.result-item').dataset.analysisId;
-                    handleDeleteAnalysis(analysisId);
-                });
-            });
-
-            renderPagination(Math.ceil(allAnalysisData.length / ITEMS_PER_PAGE));
-        }
-        
-        function renderPagination(totalPages) {
-            paginationControls.innerHTML = '';
-            if (totalPages <= 1) return;
-            for (let i = 1; i <= totalPages; i++) {
-                const button = document.createElement('button');
-                button.textContent = i;
-                button.className = `px-3 py-1 rounded-md text-sm transition-colors ${i === currentPage ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`;
-                button.onclick = () => { currentPage = i; renderAnalysisResultsList(); };
-                paginationControls.appendChild(button);
-            }
-        }
-
-        function highlightKeyFrame(time) {
-            removeKeyFrameHighlight(); 
-            const targetElement = document.querySelector(`#key-frames-container > div[data-time="${time}"]`);
-            if (targetElement) {
-                targetElement.classList.add('ring-2', 'ring-blue-500', 'ring-offset-2');
-                targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-        }
-
-        function removeKeyFrameHighlight() {
-            const highlighted = document.querySelector('.ring-2');
-            if (highlighted) {
-                highlighted.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2');
-            }
-        }
-
-        async function renderDetailedView(analysisId) {
-            detailsSection.classList.remove('hidden');
-            const resultData = allAnalysisData.find(d => d.id === analysisId);
-            if (!resultData) return;
-            detailsTitle.textContent = `상세 분석: ${resultData.fileName}`;
-
-            if (detailChart) { detailChart.destroy(); }
-            
-            const frameScores = resultData.frameScores || [];
-            const keyFrames = resultData.keyFrames || [];
-
-            const blurryPoints = keyFrames.filter(kf => kf.manualOverride !== 'ok').map(kf => ({x: kf.time, y: frameScores.find(fs => fs.time === kf.time)?.score || 0}));
-            const okPoints = keyFrames.filter(kf => kf.manualOverride === 'ok').map(kf => ({x: kf.time, y: frameScores.find(fs => fs.time === kf.time)?.score || 0}));
-
-            detailChart = new Chart(detailChartCanvas, {
-                type: 'line',
-                data: {
-                    datasets: [
-                        { label: '선명도', data: frameScores.map(fs => ({x: fs.time, y: fs.score})), borderColor: 'rgba(59, 130, 246, 0.5)', borderWidth: 1.5, pointRadius: 0, tension: 0.4 },
-                        { label: '흐림 감지', data: blurryPoints, backgroundColor: 'rgb(239, 68, 68)', pointRadius: 5, pointHoverRadius: 7, type: 'scatter' },
-                        { label: '수동 확인 (OK)', data: okPoints, backgroundColor: 'rgb(34, 197, 94)', pointRadius: 5, pointHoverRadius: 7, type: 'scatter' }
-                    ]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    scales: { x: { type: 'linear', title: { display: true, text: '시간 (초)' } }, y: { title: { display: true, text: '선명도 점수' } } },
-                    plugins: { legend: { position: 'top' }, tooltip: { enabled: true } },
-                    onHover: (event, chartElement) => {
-                        const canvas = detailChartCanvas;
-                        canvas.style.cursor = 'default';
-                        removeKeyFrameHighlight();
-
-                        if (chartElement.length > 0) {
-                            const element = chartElement[0];
-                            const datasetIndex = element.datasetIndex;
-                            const index = element.index;
-                            
-                            if (datasetIndex === 1 || datasetIndex === 2) {
-                                canvas.style.cursor = 'pointer';
-                                const timeValue = detailChart.data.datasets[datasetIndex].data[index].x;
-                                highlightKeyFrame(timeValue);
-                            }
-                        }
-                    },
-                }
-            });
-
-            renderKeyFramesForDetail(resultData);
-        }
-        
-        function renderKeyFramesForDetail(resultData) {
-            keyFramesContainer.innerHTML = '';
-            const keyFrames = resultData.keyFrames || [];
-            
-            if (keyFrames.length === 0) {
-                keyFramesContainer.innerHTML = `<p class="text-gray-500 text-center py-4">이 분석에는 감지된 문제 프레임이 없습니다.</p>`;
-                return;
-            }
-
-            keyFrames.sort((a, b) => a.time - b.time).forEach(data => {
-                const isOverridden = data.manualOverride === 'ok';
-                const sharpScoreText = data.sharpScore !== null && data.sharpScore !== undefined ? data.sharpScore.toFixed(2) : 'N/A';
-                const blurryScoreText = data.blurryScore !== null && data.blurryScore !== undefined ? data.blurryScore.toFixed(2) : 'N/A';
-
-                const pairContainer = document.createElement('div');
-                pairContainer.className = 'p-4 bg-gray-50 rounded-lg shadow-inner border space-y-4 transition-all duration-300';
-                pairContainer.dataset.time = data.time;
-
-                pairContainer.innerHTML = `
-                    <h4 class="font-bold text-md">@ ${data.time.toFixed(2)}초</h4>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <p class="text-xs font-semibold text-green-600 mb-1">이전 프레임 (전체) - 점수: ${sharpScoreText}</p>
-                            <img src="${data.sharpFullUrl}" class="w-full rounded-md border" loading="lazy">
-                            <p class="text-xs font-semibold text-green-600 mt-2 mb-1">이전 프레임 (얼굴)</p>
-                            <img src="${data.sharpCroppedUrl || 'https://placehold.co/300x200/e2e8f0/475569?text=No+Face'}" class="w-full rounded-md border" loading="lazy">
-                        </div>
-                        <div>
-                            <p class="text-xs font-semibold ${isOverridden ? 'text-green-600' : 'text-red-600'} mb-1">문제 프레임 (전체) - 점수: ${blurryScoreText}</p>
-                            <img src="${data.blurryFullUrl}" class="w-full rounded-md border" loading="lazy">
-                            <p class="text-xs font-semibold ${isOverridden ? 'text-green-600' : 'text-red-600'} mt-2 mb-1">문제 프레임 (얼굴)</p>
-                            <img src="${data.blurryCroppedUrl || 'https://placehold.co/300x200/e2e8f0/475569?text=No+Face'}" class="w-full rounded-md border" loading="lazy">
-                        </div>
-                    </div>
-                    <button data-analysis-id="${resultData.id}" data-time="${data.time}" data-action="ok" class="manual-override-button w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm ${isOverridden ? 'hidden' : ''}">이 프레임은 문제 없음</button>
-                    <button data-analysis-id="${resultData.id}" data-time="${data.time}" data-action="problem" class="manual-override-button w-full px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm ${!isOverridden ? 'hidden' : ''}">문제 프레임으로 되돌리기</button>
-                `;
-                keyFramesContainer.appendChild(pairContainer);
-            });
-
-            keyFramesContainer.querySelectorAll('.manual-override-button').forEach(button => {
-                button.addEventListener('click', (e) => {
-                    const { analysisId, time, action } = e.currentTarget.dataset;
-                    handleManualCorrection(analysisId, parseFloat(time), action);
-                });
-            });
-        }
-
-        async function handleManualCorrection(analysisId, time, action) {
-            const docRef = doc(db, `public_data/shared_documents/analyses`, analysisId);
-            const docData = allAnalysisData.find(d => d.id === analysisId);
-            if (!docData) return;
-
-            const updatedKeyFrames = docData.keyFrames.map(kf => {
-                if (kf.time === time) {
-                    return action === 'ok' ? { ...kf, manualOverride: 'ok' } : (({ manualOverride, ...rest }) => rest)(kf);
-                }
-                return kf;
-            });
-
-            try {
-                await updateDoc(docRef, { keyFrames: updatedKeyFrames });
-            } catch(err) {
-                appendLog(`수동 보정 저장 실패: ${err.message}`, 'text-red-500');
-            }
-        }
-
-        async function handleDeleteAnalysis(analysisId) {
-            const docData = allAnalysisData.find(d => d.id === analysisId);
-            if (!docData) return;
-
-            const confirmed = await showConfirmationModal('삭제 확인', `'${docData.fileName}' 기록을 정말 삭제하시겠습니까?`);
-            if (!confirmed) return;
-            
-            try {
-                const keyFrames = docData.keyFrames || [];
-                const urlsToDelete = keyFrames.flatMap(kf => [kf.sharpFullUrl, kf.sharpCroppedUrl, kf.blurryFullUrl, kf.blurryCroppedUrl]).filter(Boolean);
-                const deletePromises = urlsToDelete.map(url => deleteObject(ref(storage, url)));
-                await Promise.all(deletePromises);
-
-                await deleteDoc(doc(db, `public_data/shared_documents/analyses`, analysisId));
-                
-                if (detailChartCanvas.dataset.analysisId === analysisId) {
-                    detailsSection.classList.add('hidden');
-                }
-            } catch(err) {
-                appendLog(`기록 삭제 실패: ${err.message}`, 'text-red-500');
-            }
-        }
-
-        // --- Main Analysis Logic ---
-        videoFilesInput.addEventListener('change', (event) => { videoFiles = Array.from(event.target.files); updateAnalyzeButtonState(); });
-        
-        thresholdValueEl.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                event.target.blur();
+        // --- 이벤트 리스너 ---
+        fpsSlider.addEventListener('input', (e) => { fpsValue.textContent = e.target.value; });
+        videoUpload.addEventListener('change', handleFileSelect);
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-indigo-600'); });
+        dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.classList.remove('border-indigo-600'); });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-indigo-600');
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                handleFileSelect({ target: { files: e.dataTransfer.files } });
             }
         });
 
-        thresholdValueEl.addEventListener('blur', (event) => {
-            let value = parseInt(event.target.textContent, 10);
-            if (isNaN(value)) value = 30;
-            const min = parseInt(thresholdSlider.min, 10);
-            const max = parseInt(thresholdSlider.max, 10);
-            value = Math.max(min, Math.min(max, value));
-            event.target.textContent = value;
-            thresholdSlider.value = value;
-        });
-
-        thresholdSlider.addEventListener('input', (event) => {
-            thresholdValueEl.textContent = event.target.value;
-        });
-        
-        cancelUploadBtn.addEventListener('click', () => {
-            if (analysisController) {
-                appendLog('사용자가 분석/업로드 중단을 요청했습니다.', 'text-yellow-500');
-                analysisController.abort();
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const videoURL = URL.createObjectURL(file);
+                videoPlayer.src = videoURL;
+                videoPlayer.onloadedmetadata = () => {
+                    resultSection.classList.remove('hidden');
+                    sceneResultsContainer.innerHTML = '';
+                    logContainer.innerHTML = '';
+                    noSceneMessage.classList.add('hidden');
+                    progressBar.style.width = '0%';
+                    statusText.textContent = '동영상 분석을 시작합니다...';
+                    loader.classList.remove('hidden');
+                    analyzeVideoByBlurChange();
+                };
             }
-        });
-
-        async function uploadWithProgress(storageRef, blob, signal) {
-            return new Promise((resolve, reject) => {
-                if (!blob) return reject(new Error("업로드할 데이터가 없습니다. (null blob)"));
-                
-                const uploadTask = uploadBytesResumable(storageRef, blob);
-
-                const unsubscribe = uploadTask.on('state_changed', 
-                    (snapshot) => {
-                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                        uploadProgressBar.style.width = `${progress}%`;
-                    }, 
-                    (error) => {
-                        unsubscribe();
-                        reject(error);
-                    }, 
-                    async () => {
-                        unsubscribe();
-                        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                        resolve(downloadURL);
-                    }
-                );
-                
-                signal.addEventListener('abort', () => {
-                    unsubscribe();
-                    uploadTask.cancel();
-                });
-            });
         }
 
-        analyzeButton.addEventListener('click', async () => {
-            loadingIndicator.style.display = 'flex';
-            analyzeButton.disabled = true;
-            cancelUploadBtn.classList.remove('hidden');
-            thresholdSlider.disabled = true;
-            thresholdValueEl.contentEditable = false;
+        /**
+         * 동영상 분석 메인 함수 (흐림도 변화 감지)
+         */
+        async function analyzeVideoByBlurChange() {
+            const ANALYSIS_FPS = parseInt(fpsSlider.value);
+            const THRESHOLDS = {
+                laplacian: parseFloat(laplacianThresholdInput.value),
+                tenengrad: parseFloat(tenengradThresholdInput.value),
+                brenner: parseFloat(brennerThresholdInput.value)
+            };
             
-            analysisController = new AbortController();
-            const signal = analysisController.signal;
+            let lastFrameState = null; // { canvas, detections, closest, scores, timestamp }
+            let currentTime = 0;
+            const interval = 1 / ANALYSIS_FPS;
+            const duration = videoPlayer.duration;
+            addLog(`--- 분석 시작 (FPS: ${ANALYSIS_FPS}, 민감도: Lap=${THRESHOLDS.laplacian}, Ten=${THRESHOLDS.tenengrad}, Bre=${THRESHOLDS.brenner}) ---`);
 
-            const yieldToMain = () => new Promise(resolve => setTimeout(resolve, 0));
+            while (currentTime < duration) {
+                videoPlayer.currentTime = currentTime;
+                await new Promise(resolve => videoPlayer.onseeked = resolve);
 
-            try {
-                const threshold = parseFloat(thresholdSlider.value);
-                const analysisVideo = document.createElement('video');
-                analysisVideo.crossOrigin = 'anonymous';
-                const analysisCanvas = document.createElement('canvas');
-                const analysisCtx = analysisCanvas.getContext('2d', { willReadFrequently: true });
+                frameCanvas.width = videoPlayer.videoWidth;
+                frameCanvas.height = videoPlayer.videoHeight;
+                frameCtx.drawImage(videoPlayer, 0, 0, frameCanvas.width, frameCanvas.height);
                 
-                for (let i = 0; i < videoFiles.length; i++) {
-                    if (signal.aborted) throw new Error("분석이 중단되었습니다.");
+                const detections = await faceapi.detectAllFaces(frameCanvas, new faceapi.TinyFaceDetectorOptions());
+                
+                if (detections.length > 0) {
+                    const closestDetection = findClosestFace(detections, frameCanvas);
+                    const { x, y, width, height } = closestDetection.box;
+                    const faceImageData = frameCtx.getImageData(x, y, width, height);
+                    const grayData = toGrayscale(faceImageData);
                     
-                    const file = videoFiles[i];
+                    const currentScores = {
+                        laplacian: calculateLaplacianVariance(grayData),
+                        tenengrad: calculateTenengrad(grayData),
+                        brenner: calculateBrennerGradient(grayData)
+                    };
                     
-                    const fileURL = URL.createObjectURL(file);
-                    analysisVideo.src = fileURL;
+                    addLog(`[${formatTime(currentTime)}] 얼굴 발견. 점수: Lap=${currentScores.laplacian.toFixed(2)}, Ten=${currentScores.tenengrad.toFixed(2)}, Bre=${currentScores.brenner.toFixed(2)}`);
 
-                    const duration = await new Promise(resolve => { 
-                        analysisVideo.onloadedmetadata = () => resolve(analysisVideo.duration); 
-                    });
-                    
-                    const frameScores = [];
-                    let previousFrameState = { status: '미검출', fullFrameData: null, croppedFaceData: null, detectionBox: null, score: null };
-                    const keyFramesData = [];
-                    const SAMPLING_INTERVAL_SECONDS = 0.5;
-                    const totalSamples = Math.floor(duration / SAMPLING_INTERVAL_SECONDS);
-                    
-                    for (let j = 0; j < totalSamples; j++) {
-                        if (signal.aborted) throw new Error("분석이 중단되었습니다.");
-                        progressText.textContent = `프레임 분석 중... (${i + 1}/${videoFiles.length}) - ${j + 1}/${totalSamples}`;
-                        
-                        const currentTime = j * SAMPLING_INTERVAL_SECONDS;
-                        await new Promise(resolve => {
-                            analysisVideo.onseeked = () => resolve(); 
-                            analysisVideo.currentTime = currentTime;
-                        });
-                        
-                        if (analysisCanvas.width !== analysisVideo.videoWidth) analysisCanvas.width = analysisVideo.videoWidth;
-                        if (analysisCanvas.height !== analysisVideo.videoHeight) analysisCanvas.height = analysisVideo.videoHeight;
-                        analysisCtx.drawImage(analysisVideo, 0, 0, analysisCanvas.width, analysisCanvas.height);
-                        
-                        const detections = await faceapi.detectAllFaces(analysisVideo, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5 }));
-                        const centermostFace = getCentermostFace(detections, analysisVideo.videoWidth, analysisVideo.videoHeight);
-                        
-                        let currentStatus = '미검출';
-                        let currentCroppedFace = null;
-                        let currentDetectionBox = null;
-                        let currentScore = null;
-
-                        if (centermostFace) {
-                            const { x, y, width, height } = centermostFace.box;
-                            const faceImageData = analysisCtx.getImageData(x, y, width, height);
-                            currentScore = calculateFocusScore(faceImageData);
-                            currentStatus = currentScore < threshold ? '흐림' : '선명';
-                            frameScores.push({ time: currentTime, score: currentScore });
-                            currentCroppedFace = getCroppedFaceDataURL(analysisCanvas, centermostFace.box);
-                            currentDetectionBox = centermostFace.box;
-                        }
-
-                        if (currentStatus === '흐림' && (previousFrameState.status === '선명' || previousFrameState.status === '미검출')) {
-                             const blurryFullFrame = analysisCanvas.toDataURL('image/jpeg', 0.8);
-                             const data = {
-                                time: currentTime,
-                                sharpFull: previousFrameState.fullFrameData,
-                                sharpCropped: previousFrameState.croppedFaceData,
-                                sharpBox: previousFrameState.detectionBox,
-                                sharpScore: previousFrameState.score,
-                                blurryFull: blurryFullFrame,
-                                blurryCropped: currentCroppedFace,
-                                blurryBox: currentDetectionBox,
-                                blurryScore: currentScore
-                             };
-                             appendImageLog(data);
-                             keyFramesData.push(data);
-                        }
-                        
-                        previousFrameState = { 
-                            status: currentStatus, 
-                            fullFrameData: analysisCanvas.toDataURL('image/jpeg', 0.8),
-                            croppedFaceData: currentCroppedFace,
-                            detectionBox: currentDetectionBox,
-                            score: currentScore
+                    if (lastFrameState) {
+                        const diffs = {
+                            laplacian: Math.abs(currentScores.laplacian - lastFrameState.scores.laplacian),
+                            tenengrad: Math.abs(currentScores.tenengrad - lastFrameState.scores.tenengrad),
+                            brenner: Math.abs(currentScores.brenner - lastFrameState.scores.brenner)
                         };
-                        
-                        await yieldToMain();
-                    }
-                    
-                    const uploadedKeyFrames = [];
-                    const totalKeyFrames = keyFramesData.length;
-                    if (totalKeyFrames > 0) {
-                        uploadProgressContainer.classList.remove('hidden');
-                        for (let k = 0; k < totalKeyFrames; k++) {
-                            if (signal.aborted) throw new Error("업로드가 중단되었습니다.");
-                            
-                            const kf = keyFramesData[k];
-                            const timestamp = Date.now();
-                            
-                            const blobs = {
-                                sharpFull: dataURLtoBlob(kf.sharpFull),
-                                sharpCropped: dataURLtoBlob(kf.sharpCropped),
-                                blurryFull: dataURLtoBlob(kf.blurryFull),
-                                blurryCropped: dataURLtoBlob(kf.blurryCropped)
-                            };
+                        addLog(`  -> 이전 프레임과 비교. 점수 차이: Lap=${diffs.laplacian.toFixed(2)}, Ten=${diffs.tenengrad.toFixed(2)}, Bre=${diffs.brenner.toFixed(2)}`);
 
-                            const refs = {
-                                sharpFull: ref(storage, `public_assets/${timestamp}_sharp_full.jpeg`),
-                                sharpCropped: ref(storage, `public_assets/${timestamp}_sharp_crop.jpeg`),
-                                blurryFull: ref(storage, `public_assets/${timestamp}_blurry_full.jpeg`),
-                                blurryCropped: ref(storage, `public_assets/${timestamp}_blurry_crop.jpeg`)
-                            };
+                        let triggeredBy = null;
+                        if (diffs.laplacian > THRESHOLDS.laplacian) triggeredBy = '라플라시안';
+                        else if (diffs.tenengrad > THRESHOLDS.tenengrad) triggeredBy = '테넨그라드';
+                        else if (diffs.brenner > THRESHOLDS.brenner) triggeredBy = '브레너';
 
-                            progressText.textContent = `에셋 업로드 중... (${k * 4 + 1}/${totalKeyFrames * 4})`;
-                            const sharpFullUrl = await uploadWithProgress(refs.sharpFull, blobs.sharpFull, signal);
-                            progressText.textContent = `에셋 업로드 중... (${k * 4 + 2}/${totalKeyFrames * 4})`;
-                            const sharpCroppedUrl = await uploadWithProgress(refs.sharpCropped, blobs.sharpCropped, signal);
-                            progressText.textContent = `에셋 업로드 중... (${k * 4 + 3}/${totalKeyFrames * 4})`;
-                            const blurryFullUrl = await uploadWithProgress(refs.blurryFull, blobs.blurryFull, signal);
-                            progressText.textContent = `에셋 업로드 중... (${k * 4 + 4}/${totalKeyFrames * 4})`;
-                            const blurryCroppedUrl = await uploadWithProgress(refs.blurryCropped, blobs.blurryCropped, signal);
-                            
-                            uploadedKeyFrames.push({ 
-                                time: kf.time, 
-                                sharpFullUrl, sharpCroppedUrl, blurryFullUrl, blurryCroppedUrl, 
-                                sharpBox: kf.sharpBox ? {x: kf.sharpBox.x, y: kf.sharpBox.y, width: kf.sharpBox.width, height: kf.sharpBox.height} : null,
-                                blurryBox: kf.blurryBox ? {x: kf.blurryBox.x, y: kf.blurryBox.y, width: kf.blurryBox.width, height: kf.blurryBox.height} : null,
-                                sharpScore: kf.sharpScore, blurryScore: kf.blurryScore
+                        if (triggeredBy) {
+                            addLog(`  -> 흐림 변화 감지! (트리거: ${triggeredBy})`);
+                            createResultCardForBlurChange(lastFrameState, {
+                                canvas: frameCanvas,
+                                detections: detections,
+                                closest: closestDetection,
+                                scores: currentScores,
+                                timestamp: currentTime
                             });
                         }
                     }
 
-                    const totalScore = frameScores.reduce((sum, frame) => sum + frame.score, 0);
-                    const avgScore = frameScores.length > 0 ? totalScore / frameScores.length : 0;
-                    
-                    const newAnalysis = {
-                        fileName: file.name, timestamp: serverTimestamp(), avgScore,
-                        problematic: uploadedKeyFrames.length > 0, frameScores, keyFrames: uploadedKeyFrames,
+                    lastFrameState = {
+                        canvas: frameCanvas,
+                        detections: detections,
+                        closest: closestDetection,
+                        scores: currentScores,
+                        timestamp: currentTime
                     };
 
-                    await addDoc(collection(db, `public_data/shared_documents/analyses`), newAnalysis);
-                    appendLog(`'${file.name}' 분석 완료 및 결과 저장.`, 'text-green-500');
-                    URL.revokeObjectURL(fileURL);
-                }
-            } catch (error) {
-                if (error.code === 'storage/canceled' || (error.message && (error.message.includes('canceled') || error.message.includes('중단')))) {
-                    appendLog(`분석/업로드 중단됨: 사용자가 취소했습니다.`, 'text-yellow-500');
                 } else {
-                    appendLog(`분석 중 오류 발생: ${error.message}`, 'text-red-500');
-                    console.error("Analysis Error Stack:", error.stack);
+                    addLog(`[${formatTime(currentTime)}] 얼굴 없음. 상태 초기화.`);
+                    lastFrameState = null;
                 }
-            } finally {
-                loadingIndicator.style.display = 'none';
-                cancelUploadBtn.classList.add('hidden');
-                uploadProgressContainer.classList.add('hidden');
-                uploadProgressBar.style.width = '0%';
-                analyzeButton.disabled = false;
-                thresholdSlider.disabled = false;
-                thresholdValueEl.contentEditable = true;
-                analysisController = null;
-                videoFiles = [];
-                videoFilesInput.value = '';
-                updateAnalyzeButtonState();
+                
+                currentTime += interval;
+                const progress = (currentTime / duration) * 100;
+                progressBar.style.width = `${progress}%`;
+                statusText.textContent = `동영상 분석 중... ${Math.round(progress)}%`;
             }
-        });
+            
+            addLog(`--- 분석 완료 ---`);
+            statusText.textContent = '분석 완료!';
+            loader.classList.add('hidden');
+            if (sceneResultsContainer.childElementCount === 0) {
+                noSceneMessage.classList.remove('hidden');
+            }
+        }
 
-        window.onload = startApp;
+        function findClosestFace(detections, canvas) {
+            const imageCenter = { x: canvas.width / 2, y: canvas.height / 2 };
+            return detections.reduce((closest, current) => {
+                const getCenter = box => ({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
+                const distCurrent = getDistance(getCenter(current.box), imageCenter);
+                const distClosest = getDistance(getCenter(closest.box), imageCenter);
+                return distCurrent < distClosest ? current : closest;
+            });
+        }
+        
+        function createResultCardForBlurChange(prevState, currentState) {
+            const prevFullFrameSrc = drawDetectionsOnCanvas(prevState.canvas, prevState.detections, prevState.closest);
+            const currentFullFrameSrc = drawDetectionsOnCanvas(currentState.canvas, currentState.detections, currentState.closest);
 
+            const card = document.createElement('div');
+            card.className = "p-4 border rounded-lg flex flex-col gap-4 bg-gray-50";
+            card.innerHTML = `
+                <div class="text-center font-bold text-lg">흐림 변화 감지 @ ${formatTime(currentState.timestamp)}</div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- 이전 프레임 -->
+                    <div class="border p-2 rounded-md">
+                        <h4 class="font-semibold text-sm text-center mb-1">이전 프레임 @ ${formatTime(prevState.timestamp)}</h4>
+                        <img src="${prevFullFrameSrc}" class="rounded-md w-full object-cover shadow-sm">
+                        <div class="space-y-1 mt-2">
+                            <div class="flex justify-between items-center text-sm p-1 bg-blue-100 rounded">
+                                <span class="font-semibold text-blue-800">라플라시안:</span>
+                                <span class="font-bold text-blue-900">${prevState.scores.laplacian.toFixed(2)}</span>
+                            </div>
+                            <div class="flex justify-between items-center text-sm p-1 bg-green-100 rounded">
+                                <span class="font-semibold text-green-800">테넨그라드:</span>
+                                <span class="font-bold text-green-900">${prevState.scores.tenengrad.toFixed(2)}</span>
+                            </div>
+                            <div class="flex justify-between items-center text-sm p-1 bg-purple-100 rounded">
+                                <span class="font-semibold text-purple-800">브레너:</span>
+                                <span class="font-bold text-purple-900">${prevState.scores.brenner.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 현재 프레임 -->
+                    <div class="border p-2 rounded-md bg-blue-50">
+                        <h4 class="font-semibold text-sm text-center mb-1">현재 프레임 @ ${formatTime(currentState.timestamp)}</h4>
+                        <img src="${currentFullFrameSrc}" class="rounded-md w-full object-cover shadow-sm">
+                         <div class="space-y-1 mt-2">
+                            <div class="flex justify-between items-center text-sm p-1 bg-blue-100 rounded">
+                                <span class="font-semibold text-blue-800">라플라시안:</span>
+                                <span class="font-bold text-blue-900">${currentState.scores.laplacian.toFixed(2)}</span>
+                            </div>
+                            <div class="flex justify-between items-center text-sm p-1 bg-green-100 rounded">
+                                <span class="font-semibold text-green-800">테넨그라드:</span>
+                                <span class="font-bold text-green-900">${currentState.scores.tenengrad.toFixed(2)}</span>
+                            </div>
+                            <div class="flex justify-between items-center text-sm p-1 bg-purple-100 rounded">
+                                <span class="font-semibold text-purple-800">브레너:</span>
+                                <span class="font-bold text-purple-900">${currentState.scores.brenner.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            sceneResultsContainer.appendChild(card);
+        }
+
+        function drawDetectionsOnCanvas(sourceCanvas, detections, closestDetection) {
+            const canvas = document.createElement('canvas');
+            canvas.width = sourceCanvas.width;
+            canvas.height = sourceCanvas.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(sourceCanvas, 0, 0);
+            faceapi.draw.drawDetections(canvas, detections);
+            if (closestDetection) {
+                new faceapi.draw.DrawBox(closestDetection.box, { boxColor: '#28a745', lineWidth: 3 }).draw(canvas);
+            }
+            return canvas.toDataURL('image/jpeg', 0.8);
+        }
+
+        function addLog(message) {
+            const logEntry = document.createElement('div');
+            logEntry.textContent = message;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function getDistance(p1, p2) {
+            return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+        }
+
+        function formatTime(seconds) {
+            const min = Math.floor(seconds / 60);
+            const sec = Math.floor(seconds % 60);
+            const ms = Math.round((seconds - Math.floor(seconds)) * 10);
+            return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${ms}`;
+        }
+        
+        function toGrayscale(imageData) {
+            const grayData = new Uint8ClampedArray(imageData.width * imageData.height);
+            for (let i = 0; i < imageData.data.length; i += 4) {
+                grayData[i / 4] = 0.299 * imageData.data[i] + 0.587 * imageData.data[i+1] + 0.114 * imageData.data[i+2];
+            }
+            return { data: grayData, width: imageData.width, height: imageData.height };
+        }
+        function calculateLaplacianVariance(grayData) {
+            const { data, width, height } = grayData;
+            if (width < 3 || height < 3) return 0;
+            const kernel = [0, 1, 0, 1, -4, 1, 0, 1, 0];
+            let sum = 0, sumSq = 0, count = 0;
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    let v = 0;
+                    for (let ky = -1; ky <= 1; ky++) {
+                        for (let kx = -1; kx <= 1; kx++) {
+                            v += data[(y + ky) * width + (x + kx)] * kernel[(ky + 1) * 3 + (kx + 1)];
+                        }
+                    }
+                    sum += v;
+                    sumSq += v * v;
+                    count++;
+                }
+            }
+            if (count === 0) return 0;
+            const mean = sum / count;
+            return (sumSq / count) - (mean * mean);
+        }
+        function calculateTenengrad(grayData) {
+            const { data, width, height } = grayData;
+            if (width < 3 || height < 3) return 0;
+            const sobelX = [-1, 0, 1, -2, 0, 2, -1, 0, 1], sobelY = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
+            let sum = 0, sumSq = 0, count = 0;
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    let gx = 0, gy = 0;
+                    for (let ky = -1; ky <= 1; ky++) {
+                        for (let kx = -1; kx <= 1; kx++) {
+                            const val = data[(y + ky) * width + (x + kx)];
+                            const kIndex = (ky + 1) * 3 + (kx + 1);
+                            gx += val * sobelX[kIndex];
+                            gy += val * sobelY[kIndex];
+                        }
+                    }
+                    const mag = Math.sqrt(gx * gx + gy * gy);
+                    sum += mag;
+                    sumSq += mag * mag;
+                    count++;
+                }
+            }
+            if (count === 0) return 0;
+            const mean = sum / count;
+            return (sumSq / count) - (mean * mean);
+        }
+        function calculateBrennerGradient(grayData) {
+            const { data, width, height } = grayData;
+            if (width < 3) return 0;
+            let sum = 0, count = 0;
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width - 2; x++) {
+                    sum += Math.pow(data[y * width + x + 2] - data[y * width + x], 2);
+                    count++;
+                }
+            }
+            return count > 0 ? sum / count : 0;
+        }
     </script>
 </body>
 </html>
