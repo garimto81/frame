@@ -1,251 +1,242 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios'; // API 요청을 위한 라이브러리
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>동영상 분석 라이브러리</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-storage-compat.js"></script>
+</head>
+<body class="bg-gray-100">
 
-// --- 아이콘 (SVG) ---
-// 파일 업로드 아이콘
-const UploadIcon = () => (
-    <svg className="mx-auto h-12 w-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9A2.25 2.25 0 0 0 13.5 5.25h-9A2.25 2.25 0 0 0 2.25 7.5v9A2.25 2.25 0 0 0 4.5 18.75Z" />
-    </svg>
-);
+    <div id="root"></div>
 
-// Google 로고 아이콘
-const GoogleIcon = () => (
-    <svg className="w-5 h-5 mr-2" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
-        <path fill="currentColor" d="M488 261.8C488 403.3 381.5 512 244 512 111.3 512 0 398.5 0 256S111.3 0 244 0c69.9 0 131.5 28.2 176.1 72.9l-63.1 61.9C333.3 102.4 291.1 84 244 84c-86.1 0-155.5 67.8-155.5 151.2s69.4 151.2 155.5 151.2c94.2 0 125.3-72.2 129.1-109.2H244v-78.2h236.1c2.3 12.7 3.9 26.9 3.9 41.4z"></path>
-    </svg>
-);
+    <script type="text/babel">
+        // --- Firebase 설정 ---
+        // 중요: 이 부분은 실제 Firebase 프로젝트의 설정 값으로 교체해야 합니다.
+        const firebaseConfig = {
+          apiKey: "YOUR_API_KEY",
+          authDomain: "YOUR_AUTH_DOMAIN",
+          projectId: "YOUR_PROJECT_ID",
+          storageBucket: "YOUR_STORAGE_BUCKET",
+          messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+          appId: "YOUR_APP_ID"
+        };
 
-// --- 컴포넌트 ---
+        // Firebase 앱 초기화
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const storage = firebase.storage();
 
-// 헤더 컴포넌트
-function Header({ user, onLogout }) {
-    return (
-        <header className="bg-white shadow-sm">
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between items-center py-4">
-                    <h1 className="text-2xl font-bold text-gray-900">
-                        동영상 분석 라이브러리
-                    </h1>
-                    {user && (
-                        <div className="flex items-center">
-                            <img src={user.picture} alt={user.name} className="w-8 h-8 rounded-full mr-3" />
-                            <span className="text-gray-700 mr-4 hidden sm:block">{user.name}</span>
-                            <button 
-                                onClick={onLogout}
-                                className="bg-red-500 text-white px-4 py-2 rounded-lg shadow hover:bg-red-600 transition text-sm font-medium">
-                                로그아웃
-                            </button>
+        // --- 아이콘 (SVG) ---
+        const UploadIcon = () => (
+            <svg className="mx-auto h-12 w-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9A2.25 2.25 0 0 0 13.5 5.25h-9A2.25 2.25 0 0 0 2.25 7.5v9A2.25 2.25 0 0 0 4.5 18.75Z" />
+            </svg>
+        );
+
+        const GoogleIcon = () => (
+            <svg className="w-5 h-5 mr-2" aria-hidden="true" focusable="false" viewBox="0 0 488 512">
+                <path fill="currentColor" d="M488 261.8C488 403.3 381.5 512 244 512 111.3 512 0 398.5 0 256S111.3 0 244 0c69.9 0 131.5 28.2 176.1 72.9l-63.1 61.9C333.3 102.4 291.1 84 244 84c-86.1 0-155.5 67.8-155.5 151.2s69.4 151.2 155.5 151.2c94.2 0 125.3-72.2 129.1-109.2H244v-78.2h236.1c2.3 12.7 3.9 26.9 3.9 41.4z"></path>
+            </svg>
+        );
+
+        // --- 컴포넌트 ---
+        function Header({ user }) {
+            const handleLogout = () => {
+                auth.signOut();
+            };
+
+            return (
+                <header className="bg-white shadow-sm">
+                    <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+                        <div className="flex justify-between items-center py-4">
+                            <h1 className="text-2xl font-bold text-gray-900">
+                                동영상 분석 라이브러리
+                            </h1>
+                            {user && (
+                                <div className="flex items-center">
+                                    <img src={user.photoURL} alt={user.displayName} className="w-8 h-8 rounded-full mr-3" />
+                                    <span className="text-gray-700 mr-4 hidden sm:block">{user.displayName}</span>
+                                    <button 
+                                        onClick={handleLogout}
+                                        className="bg-red-500 text-white px-4 py-2 rounded-lg shadow hover:bg-red-600 transition text-sm font-medium">
+                                        로그아웃
+                                    </button>
+                                </div>
+                            )}
                         </div>
-                    )}
-                </div>
-            </div>
-        </header>
-    );
-}
-
-// 동영상 업로드 컴포넌트
-function VideoUploader() {
-    const [isUploading, setIsUploading] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState(0);
-
-    const handleUpload = () => {
-        // TODO: 실제 업로드 로직 구현 (백엔드 API 호출)
-        setIsUploading(true);
-        setUploadProgress(0);
-        const interval = setInterval(() => {
-            setUploadProgress(prev => {
-                if (prev >= 100) {
-                    clearInterval(interval);
-                    setIsUploading(false);
-                    return 100;
-                }
-                return prev + 10;
-            });
-        }, 200);
-    };
-
-    return (
-        <div className="bg-white p-6 rounded-xl shadow-md mb-8">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800">새 동영상 분석하기</h2>
-            <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-                <div className="space-y-1 text-center">
-                    <UploadIcon />
-                    <div className="flex text-sm text-gray-600">
-                        <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500">
-                            <span>파일 선택</span>
-                            <input id="file-upload" name="file-upload" type="file" className="sr-only" accept="video/*" onChange={handleUpload} />
-                        </label>
-                        <p className="pl-1">또는 파일을 끌어다 놓으세요</p>
                     </div>
-                    <p className="text-xs text-gray-500">MP4, WebM 등 동영상 파일</p>
-                </div>
-            </div>
-            {isUploading && (
-                <div className="mt-4">
-                    <p className="text-sm font-medium text-gray-700 mb-1">업로드 및 분석 요청 중...</p>
-                    <div className="w-full bg-gray-200 rounded-full h-2.5">
-                        <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${uploadProgress}%` }}></div>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
-// 동영상 라이브러리 컴포넌트
-function VideoLibrary({ videos }) {
-    const getStatusChip = (status) => {
-        switch (status) {
-            case '완료':
-                return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">완료</span>;
-            case '분석중':
-                return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">분석중</span>;
-            case '대기중':
-                return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">대기중</span>;
-            case '실패':
-                return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">실패</span>;
-            default:
-                return null;
+                </header>
+            );
         }
-    };
 
-    return (
-        <div className="bg-white p-6 rounded-xl shadow-md">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800">내 라이브러리</h2>
-            <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">파일명</th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">업로드 날짜</th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
-                            <th scope="col" className="relative px-6 py-3"><span className="sr-only">결과 보기</span></th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {videos.map((video) => (
-                            <tr key={video.id}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{video.name}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{video.uploadedAt}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getStatusChip(video.status)}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <a href="#" className="text-indigo-600 hover:text-indigo-900">결과 보기</a>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    );
-}
+        function VideoUploader() {
+            // TODO: Firebase Storage 업로드 로직 구현
+            return (
+                <div className="bg-white p-6 rounded-xl shadow-md mb-8">
+                    <h2 className="text-xl font-semibold mb-4 text-gray-800">새 동영상 분석하기</h2>
+                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                        <div className="space-y-1 text-center">
+                            <UploadIcon />
+                            <div className="flex text-sm text-gray-600">
+                                <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500">
+                                    <span>파일 선택</span>
+                                    <input id="file-upload" name="file-upload" type="file" className="sr-only" accept="video/*" />
+                                </label>
+                                <p className="pl-1">또는 파일을 끌어다 놓으세요</p>
+                            </div>
+                            <p className="text-xs text-gray-500">MP4, WebM 등 동영상 파일</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
 
-// 로그인 화면 컴포넌트
-function LoginScreen({ onLogin, isGoogleReady }) {
-    return (
-        <div className="text-center bg-white p-12 rounded-xl shadow-md">
-            <h2 className="text-2xl font-bold text-gray-800">서비스를 이용하려면 로그인이 필요합니다.</h2>
-            <p className="mt-2 text-gray-600">ggproduction.net Google 계정으로 로그인해주세요.</p>
-            <button 
-                onClick={onLogin}
-                disabled={!isGoogleReady}
-                className="mt-6 flex items-center justify-center bg-blue-600 text-white px-6 py-3 rounded-lg shadow hover:bg-blue-700 transition font-medium mx-auto disabled:bg-gray-400 disabled:cursor-not-allowed">
-                <GoogleIcon />
-                {isGoogleReady ? 'Google 계정으로 시작하기' : 'Google 로그인 로딩 중...'}
-            </button>
-        </div>
-    );
-}
+        function VideoLibrary({ videos }) {
+            const getStatusChip = (status) => {
+                const colors = {
+                    '완료': 'bg-green-100 text-green-800',
+                    '분석중': 'bg-yellow-100 text-yellow-800',
+                    '대기중': 'bg-gray-100 text-gray-800',
+                    '실패': 'bg-red-100 text-red-800',
+                };
+                return <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${colors[status] || ''}`}>{status}</span>;
+            };
 
-// --- 메인 App 컴포넌트 ---
-export default function App() {
-    const [user, setUser] = useState(null); 
-    const [error, setError] = useState(null);
-    const [googleClient, setGoogleClient] = useState(null);
-    const [isGoogleReady, setIsGoogleReady] = useState(false);
-    
-    // 임시 동영상 데이터
-    const [videos, setVideos] = useState([
-        { id: 1, name: 'interview_final_01.mp4', uploadedAt: '2025-07-01', status: '완료' },
-        { id: 2, name: 'camera_test_A.mov', uploadedAt: '2025-06-30', status: '분석중' },
-        { id: 3, name: 'presentation_clip.mp4', uploadedAt: '2025-06-29', status: '대기중' },
-        { id: 4, name: 'outdoor_scene.mp4', uploadedAt: '2025-06-28', status: '실패' },
-    ]);
-    
-    // Google Client ID를 여기에 입력하세요.
-    const googleClientId = "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com";
+            return (
+                <div className="bg-white p-6 rounded-xl shadow-md">
+                    <h2 className="text-xl font-semibold mb-4 text-gray-800">내 라이브러리</h2>
+                    <div className="overflow-x-auto">
+                        {videos.length === 0 ? (
+                            <p className="text-center text-gray-500 py-8">분석한 동영상이 없습니다.</p>
+                        ) : (
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">파일명</th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">업로드 날짜</th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
+                                        <th scope="col" className="relative px-6 py-3"><span className="sr-only">결과 보기</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {videos.map((video) => (
+                                        <tr key={video.id}>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{video.name}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{video.uploadedAt}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getStatusChip(video.status)}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <a href="#" className="text-indigo-600 hover:text-indigo-900">결과 보기</a>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                </div>
+            );
+        }
 
-    useEffect(() => {
-        const script = document.createElement('script');
-        script.src = 'https://accounts.google.com/gsi/client';
-        script.async = true;
-        script.defer = true;
-        script.onload = () => {
-            const client = google.accounts.oauth2.initTokenClient({
-                client_id: googleClientId,
-                scope: 'https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
-                callback: async (tokenResponse) => {
-                    try {
-                        const userInfo = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
-                            headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
-                        });
+        function LoginScreen() {
+            const handleLogin = () => {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                provider.setCustomParameters({
+                    'hd': 'ggproduction.net'
+                });
+                auth.signInWithPopup(provider)
+                    .catch((error) => {
+                        console.error("Google 로그인 에러:", error);
+                        alert(`로그인에 실패했습니다: ${error.message}`);
+                    });
+            };
 
-                        if (userInfo.data.email && userInfo.data.email.endsWith('@ggproduction.net')) {
-                            setUser(userInfo.data);
-                            setError(null);
-                        } else {
-                            setError('ggproduction.net 계정만 로그인이 허용됩니다.');
-                            setUser(null);
+            return (
+                <div className="text-center bg-white p-12 rounded-xl shadow-md">
+                    <h2 className="text-2xl font-bold text-gray-800">서비스를 이용하려면 로그인이 필요합니다.</h2>
+                    <p className="mt-2 text-gray-600">ggproduction.net Google 계정으로 로그인해주세요.</p>
+                    <button 
+                        onClick={handleLogin}
+                        className="mt-6 flex items-center justify-center bg-blue-600 text-white px-6 py-3 rounded-lg shadow hover:bg-blue-700 transition font-medium mx-auto">
+                        <GoogleIcon />
+                        Google 계정으로 시작하기
+                    </button>
+                </div>
+            );
+        }
+
+        // --- 메인 App 컴포넌트 ---
+        function App() {
+            const [user, setUser] = React.useState(null);
+            const [isLoading, setIsLoading] = React.useState(true);
+            const [videos, setVideos] = React.useState([]);
+
+            React.useEffect(() => {
+                // Firebase 인증 상태 변화 감지
+                const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+                    if (currentUser && currentUser.email.endsWith('@ggproduction.net')) {
+                        setUser(currentUser);
+                    } else {
+                        if (currentUser) {
+                            auth.signOut();
+                            alert('ggproduction.net 계정만 로그인이 허용됩니다.');
                         }
-                    } catch (err) {
-                        console.error("Login Failed:", err);
-                        setError('로그인에 실패했습니다. 다시 시도해주세요.');
+                        setUser(null);
                     }
-                },
-                error_callback: (error) => {
-                    console.error("Login Failed:", error);
-                    setError('로그인 과정 중 오류가 발생했습니다.');
+                    setIsLoading(false);
+                });
+                return () => unsubscribe(); // 클린업 함수
+            }, []);
+
+            React.useEffect(() => {
+                if (!user) {
+                    setVideos([]);
+                    return;
                 }
-            });
-            setGoogleClient(client);
-            setIsGoogleReady(true);
-        };
-        document.body.appendChild(script);
-
-        return () => {
-            document.body.removeChild(script);
-        };
-    }, [googleClientId]);
-
-    const handleLogin = () => {
-        if (googleClient) {
-            googleClient.requestAccessToken();
-        } else {
-            setError("Google 로그인 라이브러리를 로딩 중입니다. 잠시 후 다시 시도해주세요.");
-        }
-    };
-
-    const handleLogout = () => {
-        setUser(null);
-    };
-
-    return (
-        <div className="bg-gray-100 min-h-screen font-sans">
-            <Header user={user} onLogout={handleLogout} />
+                // Firestore에서 현재 사용자의 동영상 목록 실시간으로 가져오기
+                const unsubscribe = db.collection("videos").where("userId", "==", user.uid)
+                    .onSnapshot((querySnapshot) => {
+                        const userVideos = [];
+                        querySnapshot.forEach((doc) => {
+                            userVideos.push({ id: doc.id, ...doc.data() });
+                        });
+                        // TODO: 날짜순으로 정렬
+                        setVideos(userVideos);
+                    });
+                return () => unsubscribe(); // 클린업 함수
+            }, [user]);
             
-            <main className="container mx-auto p-4 sm:p-6 lg:p-8">
-                {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-6" role="alert">{error}</div>}
-                
-                {user ? (
-                    <div className="space-y-8">
-                        <VideoUploader />
-                        <VideoLibrary videos={videos} />
-                    </div>
-                ) : (
-                    <LoginScreen onLogin={handleLogin} isGoogleReady={isGoogleReady} />
-                )}
-            </main>
-        </div>
-    );
-}
+            if (isLoading) {
+                return <div className="flex items-center justify-center min-h-screen">로딩 중...</div>
+            }
+
+            return (
+                <div className="bg-gray-100 min-h-screen font-sans">
+                    <Header user={user} />
+                    <main className="container mx-auto p-4 sm:p-6 lg:p-8">
+                        {user ? (
+                            <div className="space-y-8">
+                                <VideoUploader />
+                                <VideoLibrary videos={videos} />
+                            </div>
+                        ) : (
+                            <LoginScreen />
+                        )}
+                    </main>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+
+</body>
+</html>
