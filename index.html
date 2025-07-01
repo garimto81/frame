@@ -1,456 +1,207 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>동영상 장면별 얼굴 흐림 분석기</title>
-    <!-- face-api.js 로드 -->
-    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-    <!-- Tailwind CSS CDN 로드 -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts (Inter) 로드 -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', 'Noto Sans KR', sans-serif; }
-        .loader {
-            border: 4px solid #f3f3f3;
-            border-radius: 50%;
-            border-top: 4px solid #3498db;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        /* 동영상 플레이어는 분석용으로만 사용되므로 숨김 */
-        #video-player { display: none; }
-        #log-container {
-            max-height: 300px;
-            overflow-y: auto;
-            background-color: #1f2937; /* bg-gray-800 */
-            color: #d1d5db; /* text-gray-300 */
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 0.875rem; /* text-sm */
-            padding: 1rem; /* p-4 */
-            border-radius: 0.5rem; /* rounded-lg */
-        }
-    </style>
-</head>
-<body class="bg-gray-100 text-gray-800">
+import React, { useState } from 'react';
 
-    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-5xl">
-        <!-- 앱 제목 및 설명 -->
-        <header class="text-center mb-8">
-            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">동영상 장면별 얼굴 흐림 분석기</h1>
-            <p class="mt-2 text-lg text-gray-600">프레임 간 얼굴의 흐림(초점) 변화가 큰 지점을 감지하여 분석합니다.</p>
-            <p id="model-status" class="mt-2 text-sm text-yellow-600">얼굴 인식 모델을 로딩 중입니다...</p>
+// --- 아이콘 (SVG) ---
+// 파일 업로드 아이콘
+const UploadIcon = () => (
+    <svg className="mx-auto h-12 w-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9A2.25 2.25 0 0 0 13.5 5.25h-9A2.25 2.25 0 0 0 2.25 7.5v9A2.25 2.25 0 0 0 4.5 18.75Z" />
+    </svg>
+);
+
+// Google 로고 아이콘
+const GoogleIcon = () => (
+    <svg className="w-5 h-5 mr-2" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
+        <path fill="currentColor" d="M488 261.8C488 403.3 381.5 512 244 512 111.3 512 0 398.5 0 256S111.3 0 244 0c69.9 0 131.5 28.2 176.1 72.9l-63.1 61.9C333.3 102.4 291.1 84 244 84c-86.1 0-155.5 67.8-155.5 151.2s69.4 151.2 155.5 151.2c94.2 0 125.3-72.2 129.1-109.2H244v-78.2h236.1c2.3 12.7 3.9 26.9 3.9 41.4z"></path>
+    </svg>
+);
+
+// --- 컴포넌트 ---
+
+// 헤더 컴포넌트
+function Header({ user, onLogin, onLogout }) {
+    return (
+        <header className="bg-white shadow-sm">
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex justify-between items-center py-4">
+                    <h1 className="text-2xl font-bold text-gray-900">
+                        동영상 분석 라이브러리
+                    </h1>
+                    {user ? (
+                        <div className="flex items-center">
+                            <img src={user.picture} alt={user.name} className="w-8 h-8 rounded-full mr-3" />
+                            <span className="text-gray-700 mr-4 hidden sm:block">{user.name}</span>
+                            <button 
+                                onClick={onLogout}
+                                className="bg-red-500 text-white px-4 py-2 rounded-lg shadow hover:bg-red-600 transition text-sm font-medium">
+                                로그아웃
+                            </button>
+                        </div>
+                    ) : (
+                        <button 
+                            onClick={onLogin}
+                            className="flex items-center justify-center bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg shadow-sm hover:bg-gray-50 transition text-sm font-medium">
+                            <GoogleIcon />
+                            Google로 로그인
+                        </button>
+                    )}
+                </div>
+            </div>
         </header>
+    );
+}
 
-        <main>
-            <!-- 분석 설정 섹션 -->
-            <div class="bg-white p-6 rounded-xl shadow-md mb-8">
-                <h2 class="text-xl font-semibold mb-4 text-gray-800">분석 설정</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                    <div>
-                        <label for="fps-slider" class="block text-sm font-medium text-gray-700">분석 프레임 (FPS): <span id="fps-value" class="font-bold">5</span></label>
-                        <input id="fps-slider" type="range" min="1" max="15" value="5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer mt-1">
-                    </div>
-                    <div></div> <!-- Empty grid cell for alignment -->
-                    <div>
-                        <label for="laplacian-threshold-input" class="block text-sm font-medium text-gray-700">라플라시안 민감도</label>
-                        <input id="laplacian-threshold-input" type="number" step="1" value="50" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                    </div>
-                     <div>
-                        <label for="tenengrad-threshold-input" class="block text-sm font-medium text-gray-700">테넨그라드 민감도</label>
-                        <input id="tenengrad-threshold-input" type="number" step="1" value="1000" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                    </div>
-                     <div>
-                        <label for="brenner-threshold-input" class="block text-sm font-medium text-gray-700">브레너 민감도</label>
-                        <input id="brenner-threshold-input" type="number" step="10" value="150" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                    </div>
-                </div>
-            </div>
+// 동영상 업로드 컴포넌트
+function VideoUploader() {
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
 
-            <!-- 동영상 업로드 섹션 -->
-            <div class="bg-white p-6 rounded-xl shadow-md mb-8">
-                <label for="video-upload" class="block text-lg font-medium text-gray-700 mb-2">동영상 선택</label>
-                <div id="drop-zone" class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-                    <div class="space-y-1 text-center">
-                         <svg class="mx-auto h-12 w-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9A2.25 2.25 0 0 0 13.5 5.25h-9A2.25 2.25 0 0 0 2.25 7.5v9A2.25 2.25 0 0 0 4.5 18.75Z" /></svg>
-                        <div class="flex text-sm text-gray-600">
-                            <label for="video-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500"><span>파일 업로드</span><input id="video-upload" name="video-upload" type="file" class="sr-only" accept="video/*" disabled></label>
-                            <p class="pl-1">또는 파일을 끌어다 놓으세요</p>
-                        </div>
-                        <p class="text-xs text-gray-500">MP4, WebM, OGG 등 브라우저 지원 동영상</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 분석 상태 및 결과 섹션 -->
-            <div id="result-section" class="hidden">
-                <div class="bg-white p-6 rounded-xl shadow-md">
-                    <div id="status-container" class="text-center mb-6">
-                        <div id="loader" class="flex justify-center items-center"><div class="loader"></div></div>
-                        <p id="status-text" class="mt-4 text-lg font-medium text-gray-700">동영상 분석 중...</p>
-                        <div class="w-full bg-gray-200 rounded-full h-2.5 mt-2"><div id="progress-bar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div></div>
-                    </div>
-                    <details class="mb-6"><summary class="font-semibold cursor-pointer text-gray-700">프레임별 분석 로그 보기</summary><div id="log-container" class="mt-2"></div></details>
-                    <h2 class="text-xl font-semibold mb-4 text-center border-t pt-6">분석 결과</h2>
-                    <div id="scene-results-container" class="space-y-6"></div>
-                    <div id="no-scene-message" class="hidden text-center text-gray-500 py-8"><p>분석 가능한 장면을 찾지 못했습니다.</p></div>
-                </div>
-            </div>
-        </main>
-        
-        <video id="video-player"></video>
-        <canvas id="frame-canvas" class="hidden"></canvas>
-    </div>
-
-    <script>
-        // --- DOM 요소 ---
-        const videoUpload = document.getElementById('video-upload');
-        const videoPlayer = document.getElementById('video-player');
-        const frameCanvas = document.getElementById('frame-canvas');
-        const frameCtx = frameCanvas.getContext('2d', { willReadFrequently: true });
-        const resultSection = document.getElementById('result-section');
-        const loader = document.getElementById('loader');
-        const modelStatus = document.getElementById('model-status');
-        const statusText = document.getElementById('status-text');
-        const progressBar = document.getElementById('progress-bar');
-        const sceneResultsContainer = document.getElementById('scene-results-container');
-        const noSceneMessage = document.getElementById('no-scene-message');
-        const dropZone = document.getElementById('drop-zone');
-        const logContainer = document.getElementById('log-container');
-        const fpsSlider = document.getElementById('fps-slider');
-        const fpsValue = document.getElementById('fps-value');
-        const laplacianThresholdInput = document.getElementById('laplacian-threshold-input');
-        const tenengradThresholdInput = document.getElementById('tenengrad-threshold-input');
-        const brennerThresholdInput = document.getElementById('brenner-threshold-input');
-
-        // --- 모델 로드 ---
-        async function loadModels() {
-            const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
-            try {
-                // 얼굴 인식(Recognition)을 위해 모델 추가 로드
-                await Promise.all([
-                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-                ]);
-                modelStatus.textContent = '모델 로딩 완료! 동영상을 업로드하세요.';
-                modelStatus.classList.replace('text-yellow-600', 'text-green-600');
-                videoUpload.disabled = false;
-            } catch (error) {
-                modelStatus.textContent = '모델 로딩 실패. 페이지를 새로고침 해주세요.';
-                modelStatus.classList.replace('text-yellow-600', 'text-red-600');
-                console.error("Face-api model loading failed:", error);
-            }
-        }
-        loadModels();
-
-        // --- 이벤트 리스너 ---
-        fpsSlider.addEventListener('input', (e) => { fpsValue.textContent = e.target.value; });
-        videoUpload.addEventListener('change', handleFileSelect);
-        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-indigo-600'); });
-        dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.classList.remove('border-indigo-600'); });
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('border-indigo-600');
-            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                handleFileSelect({ target: { files: e.dataTransfer.files } });
-            }
-        });
-
-        function handleFileSelect(event) {
-            const file = event.target.files[0];
-            if (file) {
-                const videoURL = URL.createObjectURL(file);
-                videoPlayer.src = videoURL;
-                videoPlayer.onloadedmetadata = () => {
-                    resultSection.classList.remove('hidden');
-                    sceneResultsContainer.innerHTML = '';
-                    logContainer.innerHTML = '';
-                    noSceneMessage.classList.add('hidden');
-                    progressBar.style.width = '0%';
-                    statusText.textContent = '동영상 분석을 시작합니다...';
-                    loader.classList.remove('hidden');
-                    analyzeVideoByBlurChange();
-                };
-            }
-        }
-
-        /**
-         * 동영상 분석 메인 함수 (흐림도 변화 감지)
-         */
-        async function analyzeVideoByBlurChange() {
-            const ANALYSIS_FPS = parseInt(fpsSlider.value);
-            const THRESHOLDS = {
-                laplacian: parseFloat(laplacianThresholdInput.value),
-                tenengrad: parseFloat(tenengradThresholdInput.value),
-                brenner: parseFloat(brennerThresholdInput.value)
-            };
-            const FACE_DISTANCE_THRESHOLD = 0.6; // 얼굴 유사도 임계값 (작을수록 동일인물)
-            
-            let lastFrameState = null; // { canvas, detections, closest, scores, descriptor, timestamp }
-            let currentTime = 0;
-            const interval = 1 / ANALYSIS_FPS;
-            const duration = videoPlayer.duration;
-            addLog(`--- 분석 시작 (FPS: ${ANALYSIS_FPS}, 민감도: Lap=${THRESHOLDS.laplacian}, Ten=${THRESHOLDS.tenengrad}, Bre=${THRESHOLDS.brenner}) ---`);
-
-            while (currentTime < duration) {
-                videoPlayer.currentTime = currentTime;
-                await new Promise(resolve => videoPlayer.onseeked = resolve);
-
-                frameCanvas.width = videoPlayer.videoWidth;
-                frameCanvas.height = videoPlayer.videoHeight;
-                frameCtx.drawImage(videoPlayer, 0, 0, frameCanvas.width, frameCanvas.height);
-                
-                // 얼굴 탐지, 랜드마크, 인식 한번에 처리
-                const fullFaceDescriptions = await faceapi.detectAllFaces(frameCanvas, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptors();
-                
-                if (fullFaceDescriptions.length > 0) {
-                    const closestFace = findClosestFace(fullFaceDescriptions, frameCanvas);
-                    const { x, y, width, height } = closestFace.detection.box;
-                    const faceImageData = frameCtx.getImageData(x, y, width, height);
-                    const grayData = toGrayscale(faceImageData);
-                    
-                    const currentScores = {
-                        laplacian: calculateLaplacianVariance(grayData),
-                        tenengrad: calculateTenengrad(grayData),
-                        brenner: calculateBrennerGradient(grayData)
-                    };
-                    const currentDescriptor = closestFace.descriptor;
-                    
-                    addLog(`[${formatTime(currentTime)}] 얼굴 발견. 점수: Lap=${currentScores.laplacian.toFixed(2)}`);
-
-                    if (lastFrameState) {
-                        // 1. 흐림 변화 감지
-                        const diffs = {
-                            laplacian: Math.abs(currentScores.laplacian - lastFrameState.scores.laplacian),
-                            tenengrad: Math.abs(currentScores.tenengrad - lastFrameState.scores.tenengrad),
-                            brenner: Math.abs(currentScores.brenner - lastFrameState.scores.brenner)
-                        };
-                        addLog(`  -> 이전 프레임과 비교. 점수 차이: Lap=${diffs.laplacian.toFixed(2)}`);
-
-                        let triggeredBy = null;
-                        if (diffs.laplacian > THRESHOLDS.laplacian) triggeredBy = '라플라시안';
-                        else if (diffs.tenengrad > THRESHOLDS.tenengrad) triggeredBy = '테넨그라드';
-                        else if (diffs.brenner > THRESHOLDS.brenner) triggeredBy = '브레너';
-
-                        if (triggeredBy) {
-                            addLog(`  -> 흐림 변화 감지! (트리거: ${triggeredBy})`);
-                            // 2. 동일 인물인지 확인
-                            const faceDistance = faceapi.euclideanDistance(currentDescriptor, lastFrameState.descriptor);
-                            addLog(`  -> 얼굴 유사도 거리: ${faceDistance.toFixed(4)} (임계값: ${FACE_DISTANCE_THRESHOLD})`);
-
-                            if (faceDistance > FACE_DISTANCE_THRESHOLD) {
-                                addLog(`  -> 다른 인물로 판단되어 결과 추출!`);
-                                createResultCardForBlurChange(lastFrameState, {
-                                    canvas: frameCanvas,
-                                    detections: fullFaceDescriptions.map(d => d.detection),
-                                    closest: closestFace.detection,
-                                    scores: currentScores,
-                                    descriptor: currentDescriptor,
-                                    timestamp: currentTime
-                                });
-                            } else {
-                                addLog(`  -> 동일 인물로 판단되어 건너뜁니다.`);
-                            }
-                        }
-                    }
-
-                    lastFrameState = {
-                        canvas: frameCanvas,
-                        detections: fullFaceDescriptions.map(d => d.detection),
-                        closest: closestFace.detection,
-                        scores: currentScores,
-                        descriptor: currentDescriptor,
-                        timestamp: currentTime
-                    };
-
-                } else {
-                    addLog(`[${formatTime(currentTime)}] 얼굴 없음. 상태 초기화.`);
-                    lastFrameState = null;
+    const handleUpload = () => {
+        // 실제 업로드 로직은 여기에 구현됩니다.
+        // 지금은 임시로 진행 상태를 시뮬레이션합니다.
+        setIsUploading(true);
+        setUploadProgress(0);
+        const interval = setInterval(() => {
+            setUploadProgress(prev => {
+                if (prev >= 100) {
+                    clearInterval(interval);
+                    setIsUploading(false);
+                    // TODO: 업로드 완료 후 라이브러리 새로고침 API 호출
+                    return 100;
                 }
-                
-                currentTime += interval;
-                const progress = (currentTime / duration) * 100;
-                progressBar.style.width = `${progress}%`;
-                statusText.textContent = `동영상 분석 중... ${Math.round(progress)}%`;
-            }
-            
-            addLog(`--- 분석 완료 ---`);
-            statusText.textContent = '분석 완료!';
-            loader.classList.add('hidden');
-            if (sceneResultsContainer.childElementCount === 0) {
-                noSceneMessage.classList.remove('hidden');
-            }
-        }
-
-        function findClosestFace(descriptions, canvas) {
-            const imageCenter = { x: canvas.width / 2, y: canvas.height / 2 };
-            return descriptions.reduce((closest, current) => {
-                const getCenter = box => ({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
-                const distCurrent = getDistance(getCenter(current.detection.box), imageCenter);
-                const distClosest = getDistance(getCenter(closest.detection.box), imageCenter);
-                return distCurrent < distClosest ? current : closest;
+                return prev + 10;
             });
-        }
-        
-        function createResultCardForBlurChange(prevState, currentState) {
-            const prevFullFrameSrc = drawDetectionsOnCanvas(prevState.canvas, prevState.detections, prevState.closest);
-            const currentFullFrameSrc = drawDetectionsOnCanvas(currentState.canvas, currentState.detections, currentState.closest);
+        }, 200);
+    };
 
-            const card = document.createElement('div');
-            card.className = "p-4 border rounded-lg flex flex-col gap-4 bg-gray-50";
-            card.innerHTML = `
-                <div class="text-center font-bold text-lg">흐림 변화 감지 @ ${formatTime(currentState.timestamp)}</div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- 이전 프레임 -->
-                    <div class="border p-2 rounded-md">
-                        <h4 class="font-semibold text-sm text-center mb-1">이전 프레임 @ ${formatTime(prevState.timestamp)}</h4>
-                        <img src="${prevFullFrameSrc}" class="rounded-md w-full object-cover shadow-sm">
-                        <div class="space-y-1 mt-2">
-                            <div class="flex justify-between items-center text-sm p-1 bg-blue-100 rounded">
-                                <span class="font-semibold text-blue-800">라플라시안:</span>
-                                <span class="font-bold text-blue-900">${prevState.scores.laplacian.toFixed(2)}</span>
-                            </div>
-                            <div class="flex justify-between items-center text-sm p-1 bg-green-100 rounded">
-                                <span class="font-semibold text-green-800">테넨그라드:</span>
-                                <span class="font-bold text-green-900">${prevState.scores.tenengrad.toFixed(2)}</span>
-                            </div>
-                            <div class="flex justify-between items-center text-sm p-1 bg-purple-100 rounded">
-                                <span class="font-semibold text-purple-800">브레너:</span>
-                                <span class="font-bold text-purple-900">${prevState.scores.brenner.toFixed(2)}</span>
-                            </div>
-                        </div>
+    return (
+        <div className="bg-white p-6 rounded-xl shadow-md mb-8">
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">새 동영상 분석하기</h2>
+            <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                <div className="space-y-1 text-center">
+                    <UploadIcon />
+                    <div className="flex text-sm text-gray-600">
+                        <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500">
+                            <span>파일 선택</span>
+                            <input id="file-upload" name="file-upload" type="file" className="sr-only" accept="video/*" onChange={handleUpload} />
+                        </label>
+                        <p className="pl-1">또는 파일을 끌어다 놓으세요</p>
                     </div>
-                    <!-- 현재 프레임 -->
-                    <div class="border p-2 rounded-md bg-blue-50">
-                        <h4 class="font-semibold text-sm text-center mb-1">현재 프레임 @ ${formatTime(currentState.timestamp)}</h4>
-                        <img src="${currentFullFrameSrc}" class="rounded-md w-full object-cover shadow-sm">
-                         <div class="space-y-1 mt-2">
-                            <div class="flex justify-between items-center text-sm p-1 bg-blue-100 rounded">
-                                <span class="font-semibold text-blue-800">라플라시안:</span>
-                                <span class="font-bold text-blue-900">${currentState.scores.laplacian.toFixed(2)}</span>
-                            </div>
-                            <div class="flex justify-between items-center text-sm p-1 bg-green-100 rounded">
-                                <span class="font-semibold text-green-800">테넨그라드:</span>
-                                <span class="font-bold text-green-900">${currentState.scores.tenengrad.toFixed(2)}</span>
-                            </div>
-                            <div class="flex justify-between items-center text-sm p-1 bg-purple-100 rounded">
-                                <span class="font-semibold text-purple-800">브레너:</span>
-                                <span class="font-bold text-purple-900">${currentState.scores.brenner.toFixed(2)}</span>
-                            </div>
-                        </div>
+                    <p className="text-xs text-gray-500">MP4, WebM 등 동영상 파일</p>
+                </div>
+            </div>
+            {isUploading && (
+                <div className="mt-4">
+                    <p className="text-sm font-medium text-gray-700 mb-1">업로드 및 분석 요청 중...</p>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                        <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${uploadProgress}%` }}></div>
                     </div>
                 </div>
-            `;
-            sceneResultsContainer.appendChild(card);
-        }
+            )}
+        </div>
+    );
+}
 
-        function drawDetectionsOnCanvas(sourceCanvas, detections, closestDetection) {
-            const canvas = document.createElement('canvas');
-            canvas.width = sourceCanvas.width;
-            canvas.height = sourceCanvas.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(sourceCanvas, 0, 0);
-            faceapi.draw.drawDetections(canvas, detections);
-            if (closestDetection) {
-                new faceapi.draw.DrawBox(closestDetection.box, { boxColor: '#28a745', lineWidth: 3 }).draw(canvas);
-            }
-            return canvas.toDataURL('image/jpeg', 0.8);
+// 동영상 라이브러리 컴포넌트
+function VideoLibrary({ videos }) {
+    const getStatusChip = (status) => {
+        switch (status) {
+            case '완료':
+                return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">완료</span>;
+            case '분석중':
+                return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">분석중</span>;
+            case '대기중':
+                return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">대기중</span>;
+            case '실패':
+                return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">실패</span>;
+            default:
+                return null;
         }
+    };
 
-        function addLog(message) {
-            const logEntry = document.createElement('div');
-            logEntry.textContent = message;
-            logContainer.appendChild(logEntry);
-            logContainer.scrollTop = logContainer.scrollHeight;
-        }
+    return (
+        <div className="bg-white p-6 rounded-xl shadow-md">
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">내 라이브러리</h2>
+            <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                        <tr>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">파일명</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">업로드 날짜</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
+                            <th scope="col" className="relative px-6 py-3"><span className="sr-only">결과 보기</span></th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                        {videos.map((video) => (
+                            <tr key={video.id}>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{video.name}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{video.uploadedAt}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getStatusChip(video.status)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="#" className="text-indigo-600 hover:text-indigo-900">결과 보기</a>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
 
-        function getDistance(p1, p2) {
-            return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
-        }
 
-        function formatTime(seconds) {
-            const min = Math.floor(seconds / 60);
-            const sec = Math.floor(seconds % 60);
-            const ms = Math.round((seconds - Math.floor(seconds)) * 10);
-            return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${ms}`;
-        }
-        
-        function toGrayscale(imageData) {
-            const grayData = new Uint8ClampedArray(imageData.width * imageData.height);
-            for (let i = 0; i < imageData.data.length; i += 4) {
-                grayData[i / 4] = 0.299 * imageData.data[i] + 0.587 * imageData.data[i+1] + 0.114 * imageData.data[i+2];
-            }
-            return { data: grayData, width: imageData.width, height: imageData.height };
-        }
-        function calculateLaplacianVariance(grayData) {
-            const { data, width, height } = grayData;
-            if (width < 3 || height < 3) return 0;
-            const kernel = [0, 1, 0, 1, -4, 1, 0, 1, 0];
-            let sum = 0, sumSq = 0, count = 0;
-            for (let y = 1; y < height - 1; y++) {
-                for (let x = 1; x < width - 1; x++) {
-                    let v = 0;
-                    for (let ky = -1; ky <= 1; ky++) {
-                        for (let kx = -1; kx <= 1; kx++) {
-                            v += data[(y + ky) * width + (x + kx)] * kernel[(ky + 1) * 3 + (kx + 1)];
-                        }
-                    }
-                    sum += v;
-                    sumSq += v * v;
-                    count++;
-                }
-            }
-            if (count === 0) return 0;
-            const mean = sum / count;
-            return (sumSq / count) - (mean * mean);
-        }
-        function calculateTenengrad(grayData) {
-            const { data, width, height } = grayData;
-            if (width < 3 || height < 3) return 0;
-            const sobelX = [-1, 0, 1, -2, 0, 2, -1, 0, 1], sobelY = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
-            let sum = 0, sumSq = 0, count = 0;
-            for (let y = 1; y < height - 1; y++) {
-                for (let x = 1; x < width - 1; x++) {
-                    let gx = 0, gy = 0;
-                    for (let ky = -1; ky <= 1; ky++) {
-                        for (let kx = -1; kx <= 1; kx++) {
-                            const val = data[(y + ky) * width + (x + kx)];
-                            const kIndex = (ky + 1) * 3 + (kx + 1);
-                            gx += val * sobelX[kIndex];
-                            gy += val * sobelY[kIndex];
-                        }
-                    }
-                    const mag = Math.sqrt(gx * gx + gy * gy);
-                    sum += mag;
-                    sumSq += mag * mag;
-                    count++;
-                }
-            }
-            if (count === 0) return 0;
-            const mean = sum / count;
-            return (sumSq / count) - (mean * mean);
-        }
-        function calculateBrennerGradient(grayData) {
-            const { data, width, height } = grayData;
-            if (width < 3) return 0;
-            let sum = 0, count = 0;
-            for (let y = 0; y < height; y++) {
-                for (let x = 0; x < width - 2; x++) {
-                    sum += Math.pow(data[y * width + x + 2] - data[y * width + x], 2);
-                    count++;
-                }
-            }
-            return count > 0 ? sum / count : 0;
-        }
-    </script>
-</body>
-</html>
+// --- 메인 App 컴포넌트 ---
+export default function App() {
+    // 임시 사용자 데이터 (로그인 상태 시뮬레이션)
+    const [user, setUser] = useState(null); 
+    
+    // 임시 동영상 데이터
+    const [videos, setVideos] = useState([
+        { id: 1, name: 'interview_final_01.mp4', uploadedAt: '2025-07-01', status: '완료' },
+        { id: 2, name: 'camera_test_A.mov', uploadedAt: '2025-06-30', status: '분석중' },
+        { id: 3, name: 'presentation_clip.mp4', uploadedAt: '2025-06-29', status: '대기중' },
+        { id: 4, name: 'outdoor_scene.mp4', uploadedAt: '2025-06-28', status: '실패' },
+    ]);
+
+    // Google 로그인/로그아웃 핸들러 (시뮬레이션)
+    const handleLogin = () => {
+        // 실제로는 Google OAuth API 호출 로직이 들어갑니다.
+        // 백엔드의 /api/auth/google 로 리디렉션합니다.
+        alert('Google 로그인 프로세스를 시작합니다. (백엔드 연동 필요)');
+        setUser({
+            name: '홍길동',
+            email: 'hong@ggproduction.net',
+            picture: 'https://placehold.co/40x40/E2E8F0/4A5568?text=G',
+        });
+    };
+
+    const handleLogout = () => {
+        setUser(null);
+    };
+
+    return (
+        <div className="bg-gray-100 min-h-screen font-sans">
+            <Header user={user} onLogin={handleLogin} onLogout={handleLogout} />
+            
+            <main className="container mx-auto p-4 sm:p-6 lg:p-8">
+                {user ? (
+                    <div className="space-y-8">
+                        <VideoUploader />
+                        <VideoLibrary videos={videos} />
+                    </div>
+                ) : (
+                    <div className="text-center bg-white p-12 rounded-xl shadow-md">
+                        <h2 className="text-2xl font-bold text-gray-800">서비스를 이용하려면 로그인이 필요합니다.</h2>
+                        <p className="mt-2 text-gray-600">ggproduction.net Google 계정으로 로그인해주세요.</p>
+                        <button 
+                            onClick={handleLogin}
+                            className="mt-6 flex items-center justify-center bg-blue-600 text-white px-6 py-3 rounded-lg shadow hover:bg-blue-700 transition font-medium mx-auto">
+                            <GoogleIcon />
+                            Google 계정으로 시작하기
+                        </button>
+                    </div>
+                )}
+            </main>
+        </div>
+    );
+}
