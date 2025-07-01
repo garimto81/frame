@@ -1,613 +1,251 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cam-Set Pro | 카메라 세팅 관리 (v0.11 - Firebase)</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pica/9.0.1/pica.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        .hidden { display: none; }
-        .modal-bg { background-color: rgba(0, 0, 0, 0.6); }
-        .card-hover-glow { transition: box-shadow 0.3s ease-in-out; }
-        .card-hover-glow:hover { box-shadow: 0 0 15px 5px rgba(59, 130, 246, 0.4); }
-        .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
-</head>
-<body class="bg-gray-900 text-gray-200">
+import React, { useState, useEffect } from 'react';
+import axios from 'axios'; // API 요청을 위한 라이브러리
 
-    <!-- App Container -->
-    <div id="app" class="container mx-auto p-4 md:p-8">
+// --- 아이콘 (SVG) ---
+// 파일 업로드 아이콘
+const UploadIcon = () => (
+    <svg className="mx-auto h-12 w-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9A2.25 2.25 0 0 0 13.5 5.25h-9A2.25 2.25 0 0 0 2.25 7.5v9A2.25 2.25 0 0 0 4.5 18.75Z" />
+    </svg>
+);
 
-        <!-- Header -->
-        <header class="flex flex-wrap justify-between items-center mb-8 gap-4">
-            <h1 class="text-3xl font-bold text-white">Cam-Set Pro v0.11</h1>
-            <div class="flex items-center">
-                <div id="auth-container" class="text-right mr-4">
-                    <!-- Auth status will be injected here -->
+// Google 로고 아이콘
+const GoogleIcon = () => (
+    <svg className="w-5 h-5 mr-2" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
+        <path fill="currentColor" d="M488 261.8C488 403.3 381.5 512 244 512 111.3 512 0 398.5 0 256S111.3 0 244 0c69.9 0 131.5 28.2 176.1 72.9l-63.1 61.9C333.3 102.4 291.1 84 244 84c-86.1 0-155.5 67.8-155.5 151.2s69.4 151.2 155.5 151.2c94.2 0 125.3-72.2 129.1-109.2H244v-78.2h236.1c2.3 12.7 3.9 26.9 3.9 41.4z"></path>
+    </svg>
+);
+
+// --- 컴포넌트 ---
+
+// 헤더 컴포넌트
+function Header({ user, onLogout }) {
+    return (
+        <header className="bg-white shadow-sm">
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex justify-between items-center py-4">
+                    <h1 className="text-2xl font-bold text-gray-900">
+                        동영상 분석 라이브러리
+                    </h1>
+                    {user && (
+                        <div className="flex items-center">
+                            <img src={user.picture} alt={user.name} className="w-8 h-8 rounded-full mr-3" />
+                            <span className="text-gray-700 mr-4 hidden sm:block">{user.name}</span>
+                            <button 
+                                onClick={onLogout}
+                                className="bg-red-500 text-white px-4 py-2 rounded-lg shadow hover:bg-red-600 transition text-sm font-medium">
+                                로그아웃
+                            </button>
+                        </div>
+                    )}
                 </div>
-                <button id="compareBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 disabled:bg-gray-500 disabled:cursor-not-allowed" disabled>비교하기</button>
-                <button id="newTestBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ml-2">새 테스트 추가</button>
             </div>
         </header>
+    );
+}
 
-        <!-- Main Content Area -->
-        <main id="mainContent">
-            <!-- Dashboard View -->
-            <div id="dashboardView">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-2xl font-semibold">테스트 라이브러리</h2>
-                    <input type="text" id="searchInput" placeholder="제목, 카메라, 렌즈 등으로 검색..." class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 w-full md:w-1/3 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div id="gallery" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
-                <div id="loading" class="flex justify-center items-center mt-10">
-                    <div class="loader"></div>
-                    <p class="ml-4 text-lg">데이터를 불러오는 중...</p>
-                </div>
-                 <div id="no-data" class="text-center py-16 hidden">
-                    <p class="text-xl text-gray-400">저장된 테스트 데이터가 없습니다.</p>
-                    <p class="text-gray-500 mt-2">'새 테스트 추가' 버튼을 눌러 첫 데이터를 저장해보세요.</p>
-                </div>
-            </div>
+// 동영상 업로드 컴포넌트
+function VideoUploader() {
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
 
-            <!-- Form View (No changes to the form fields) -->
-            <div id="formView" class="hidden">
-                 <h2 id="formTitle" class="text-2xl font-semibold mb-6">새 테스트 데이터 입력</h2>
-                <form id="testForm" class="bg-gray-800 p-8 rounded-lg shadow-xl space-y-6">
-                    <fieldset class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <legend class="text-lg font-medium text-white mb-2">기본 정보</legend>
-                        <input type="hidden" id="entryId">
-                        <input type="text" id="title" placeholder="테스트 제목 (예: 핸드 클로즈업 샷)" class="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                        <input type="text" id="director" placeholder="촬영 감독" class="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <input type="date" id="date" class="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-400">
-                        <textarea id="sceneDesc" placeholder="장면 상세 설명" rows="3" class="md:col-span-2 bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-                    </fieldset>
-                    <fieldset class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <legend class="text-lg font-medium text-white mb-2">카메라 정보</legend>
-                        <input type="text" id="cameraModel" placeholder="카메라 모델 (예: Sony FX3)" class="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <input type="text" id="lens" placeholder="렌즈 (예: 24-70mm GM II)" class="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </fieldset>
-                    <fieldset class="grid grid-cols-2 md:grid-cols-4 gap-6">
-                        <legend class="text-lg font-medium text-white mb-2 col-span-full">핵심 세팅 (선택 사항)</legend>
-                        <input type="number" id="iso" placeholder="ISO" class="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <input type="text" id="aperture" placeholder="Aperture (F-stop)" class="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <input type="text" id="shutterSpeed" placeholder="Shutter Speed" class="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <input type="text" id="whiteBalance" placeholder="White Balance (K)" class="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <input type="text" id="pictureProfile" placeholder="Picture Profile" class="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <input type="text" id="focusDistance" placeholder="Focus Distance" class="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <input type="text" id="ndFilter" placeholder="ND Filter" class="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </fieldset>
-                    <fieldset>
-                        <legend class="text-lg font-medium text-white mb-2">결과물 이미지</legend>
-                        <input type="file" id="imageUpload" accept="image/jpeg, image/png" class="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" required>
-                        <div id="imagePreviewContainer" class="mt-4 hidden">
-                            <h4 id="previewTitle" class="text-center font-semibold mb-2">미리보기</h4>
-                            <img id="previewImage" class="mt-2 rounded-lg w-full max-w-md mx-auto h-auto object-contain bg-gray-700/50">
-                        </div>
-                    </fieldset>
-                    <div class="flex justify-end space-x-4 pt-4">
-                        <button type="button" id="cancelBtn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg transition duration-300">취소</button>
-                        <button type="submit" id="saveBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition duration-300">저장</button>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Comparison View -->
-            <div id="comparisonView" class="hidden">
-                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-semibold">세팅 비교</h2>
-                    <button id="backToDashboardBtn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">돌아가기</button>
-                </div>
-                <div id="comparisonGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
-            </div>
-        </main>
-    </div>
-
-    <!-- Modals -->
-    <div id="statusModal" class="fixed inset-0 z-50 flex items-center justify-center modal-bg hidden">
-        <div class="bg-gray-800 rounded-lg shadow-2xl p-8 w-full max-w-md text-center">
-            <div id="statusLoader" class="flex justify-center mb-4"><div class="loader"></div></div>
-            <h3 id="statusTitle" class="text-2xl font-bold text-white mb-4">처리 중...</h3>
-            <p id="statusMessage" class="text-gray-300"></p>
-            <button id="closeStatusModalBtn" class="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition duration-300 hidden">완료</button>
-        </div>
-    </div>
-    <div id="originalImageViewModal" class="fixed inset-0 z-50 flex items-center justify-center modal-bg hidden" onclick="this.classList.add('hidden')">
-        <img id="originalImageContent" src="" alt="Original Image" class="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl">
-    </div>
-    <div id="deleteConfirmModal" class="fixed inset-0 z-50 flex items-center justify-center modal-bg hidden">
-        <div class="bg-gray-800 rounded-lg shadow-2xl p-8 w-full max-w-md">
-            <h3 class="text-2xl font-bold text-red-500 mb-4">삭제 확인</h3>
-            <p id="deleteConfirmMessage" class="text-gray-300 mb-6"></p>
-            <div class="flex justify-end space-x-4">
-                <button id="cancelDeleteBtn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg">취소</button>
-                <button id="confirmDeleteBtn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg">삭제</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Firebase SDK -->
-    <script type="module">
-        // Firebase SDKs
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
-        import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
-
-        // =================================================================================
-        // TODO: 여기에 자신의 Firebase 프로젝트의 설정을 붙여넣으세요.
-        const firebaseConfig = {
-            apiKey: "AIzaSyCGL7epqiL0Qg_-Rva6oFmRkl8r5Wri_wQ",
-            authDomain: "camtest-6267c.firebaseapp.com",
-            projectId: "camtest-6267c",
-            storageBucket: "camtest-6267c.appspot.com", // .appspot.com 으로 끝나야 합니다.
-            messagingSenderId: "348691096048",
-            appId: "1:348691096048:web:ac20cffd88f4dae837bd35"
-        };
-        // =================================================================================
-
-        // Initialize Firebase
-        const fbApp = initializeApp(firebaseConfig);
-        const auth = getAuth(fbApp);
-        const db = getFirestore(fbApp);
-        const storage = getStorage(fbApp);
-        const googleProvider = new GoogleAuthProvider();
-
-        // --- DOM Elements ---
-        const app = {
-            views: { dashboard: document.getElementById('dashboardView'), form: document.getElementById('formView'), comparison: document.getElementById('comparisonView') },
-            buttons: {
-                newTest: document.getElementById('newTestBtn'),
-                compare: document.getElementById('compareBtn'),
-                cancel: document.getElementById('cancelBtn'),
-                save: document.getElementById('saveBtn'),
-                backToDashboard: document.getElementById('backToDashboardBtn'),
-                closeStatusModal: document.getElementById('closeStatusModalBtn'),
-                cancelDelete: document.getElementById('cancelDeleteBtn'),
-                confirmDelete: document.getElementById('confirmDeleteBtn'),
-            },
-            containers: {
-                gallery: document.getElementById('gallery'),
-                comparisonGrid: document.getElementById('comparisonGrid'),
-                loading: document.getElementById('loading'),
-                noData: document.getElementById('no-data'),
-                auth: document.getElementById('auth-container'),
-            },
-            form: {
-                formElement: document.getElementById('testForm'),
-                title: document.getElementById('formTitle'),
-                entryId: document.getElementById('entryId'),
-                imageUpload: document.getElementById('imageUpload'),
-                imagePreviewContainer: document.getElementById('imagePreviewContainer'),
-                previewTitle: document.getElementById('previewTitle'),
-                previewImage: document.getElementById('previewImage'),
-            },
-            modal: {
-                status: document.getElementById('statusModal'),
-                statusTitle: document.getElementById('statusTitle'),
-                statusMessage: document.getElementById('statusMessage'),
-                statusLoader: document.getElementById('statusLoader'),
-                originalImage: document.getElementById('originalImageViewModal'),
-                originalImageContent: document.getElementById('originalImageContent'),
-                deleteConfirm: document.getElementById('deleteConfirmModal'),
-                deleteConfirmMessage: document.getElementById('deleteConfirmMessage'),
-            },
-            inputs: { search: document.getElementById('searchInput') }
-        };
-
-        // --- State ---
-        let state = {
-            allData: [],
-            comparisonList: new Set(),
-            resizedImageBlob: null,
-            originalImageFile: null,
-            currentUser: null,
-            itemToDelete: null,
-            unsubscribe: null,
-        };
-
-        const picaInstance = pica();
-        const MAX_IMAGE_WIDTH = 1280;
-        const IMAGE_SIZE_LIMIT = 1024 * 1024; // 1MB
-        const ALLOWED_DOMAIN = "ggproduction.net";
-
-        // --- Authentication ---
-        onAuthStateChanged(auth, user => {
-            if (user) {
-                // Check if the user's email domain is allowed
-                if (user.email && user.email.endsWith(`@${ALLOWED_DOMAIN}`)) {
-                    state.currentUser = user;
-                    console.log("Authorized user signed in:", user.displayName, user.email);
-                    app.containers.auth.innerHTML = `
-                        <div class="flex items-center">
-                            <img src="${user.photoURL}" alt="${user.displayName}" class="w-8 h-8 rounded-full mr-2">
-                            <div>
-                                <p class="text-sm font-semibold">${user.displayName}</p>
-                                <button id="logoutBtn" class="text-xs text-blue-400 hover:underline">로그아웃</button>
-                            </div>
-                        </div>
-                    `;
-                    document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
-                    loadData();
-                } else {
-                    // If not an allowed domain, sign them out
-                    console.warn("Unauthorized user domain:", user.email);
-                    alert(`접근이 거부되었습니다. ${ALLOWED_DOMAIN} 계정만 사용할 수 있습니다.`);
-                    signOut(auth);
+    const handleUpload = () => {
+        // TODO: 실제 업로드 로직 구현 (백엔드 API 호출)
+        setIsUploading(true);
+        setUploadProgress(0);
+        const interval = setInterval(() => {
+            setUploadProgress(prev => {
+                if (prev >= 100) {
+                    clearInterval(interval);
+                    setIsUploading(false);
+                    return 100;
                 }
-            } else {
-                // User is signed out
-                state.currentUser = null;
-                console.log("User is signed out.");
-                app.containers.auth.innerHTML = `
-                    <button id="loginBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Google 계정으로 로그인</button>
-                `;
-                document.getElementById('loginBtn').addEventListener('click', () => signInWithPopup(auth, googleProvider));
-                app.containers.gallery.innerHTML = '';
-                app.containers.loading.classList.add('hidden');
-                app.containers.noData.classList.remove('hidden');
-                app.containers.noData.querySelector('p').textContent = '데이터를 보려면 로그인해주세요.';
-                if (state.unsubscribe) state.unsubscribe();
-            }
-        });
-
-        // --- Core Application Functions ---
-        function loadData() {
-            app.containers.loading.classList.remove('hidden');
-            app.containers.gallery.innerHTML = '';
-            
-            const testsCollection = collection(db, "camera_tests");
-            
-            state.unsubscribe = onSnapshot(testsCollection, (querySnapshot) => {
-                state.allData = [];
-                querySnapshot.forEach((doc) => {
-                    state.allData.push({ id: doc.id, ...doc.data() });
-                });
-                console.log(`Loaded ${state.allData.length} entries from Firestore.`);
-                renderDashboard();
-                app.containers.loading.classList.add('hidden');
-                app.containers.noData.classList.toggle('hidden', state.allData.length > 0);
-            }, (error) => {
-                console.error("Error loading data from Firestore: ", error);
-                app.containers.loading.classList.add('hidden');
-                app.containers.noData.querySelector('p').textContent = `데이터 로딩 오류: ${error.message}`;
-                app.containers.noData.classList.remove('hidden');
+                return prev + 10;
             });
-        }
+        }, 200);
+    };
 
-        function renderDashboard(filter = '') {
-            app.containers.gallery.innerHTML = '';
-            const filteredData = state.allData.filter(item => {
-                const searchTerm = filter.toLowerCase();
-                return (
-                    item.title?.toLowerCase().includes(searchTerm) ||
-                    item.cameraModel?.toLowerCase().includes(searchTerm) ||
-                    item.lens?.toLowerCase().includes(searchTerm) ||
-                    item.sceneDesc?.toLowerCase().includes(searchTerm)
-                );
-            }).sort((a, b) => (b.createdAt?.toDate() || 0) - (a.createdAt?.toDate() || 0));
-
-
-            if (filteredData.length === 0 && state.allData.length > 0) {
-                 app.containers.gallery.innerHTML = `<p class="col-span-full text-center text-gray-400">검색 결과가 없습니다.</p>`;
-                 return;
-            }
-
-            filteredData.forEach(item => {
-                const isSelected = state.comparisonList.has(item.id);
-                const card = document.createElement('div');
-                card.className = `bg-gray-800 rounded-lg overflow-hidden shadow-lg transform hover:-translate-y-1 transition-all duration-300 card-hover-glow cursor-pointer border-2 ${isSelected ? 'border-blue-500' : 'border-transparent'}`;
-                card.dataset.id = item.id;
-                
-                card.innerHTML = `
-                    <img src="${item.image_viewer}" alt="${item.title}" class="w-full h-48 object-cover" onerror="this.onerror=null;this.src='https://placehold.co/600x400/1f2937/9ca3af?text=Image+Error';">
-                    <div class="p-4">
-                        <h3 class="font-bold text-lg truncate">${item.title}</h3>
-                        <p class="text-sm text-gray-400">${item.date || '날짜 없음'}</p>
-                        <p class="text-sm text-gray-500 truncate">${item.cameraModel || '카메라 정보 없음'}</p>
+    return (
+        <div className="bg-white p-6 rounded-xl shadow-md mb-8">
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">새 동영상 분석하기</h2>
+            <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                <div className="space-y-1 text-center">
+                    <UploadIcon />
+                    <div className="flex text-sm text-gray-600">
+                        <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500">
+                            <span>파일 선택</span>
+                            <input id="file-upload" name="file-upload" type="file" className="sr-only" accept="video/*" onChange={handleUpload} />
+                        </label>
+                        <p className="pl-1">또는 파일을 끌어다 놓으세요</p>
                     </div>
-                    <div class="absolute top-2 right-2 flex items-center">
-                       <input type="checkbox" class="compare-checkbox h-6 w-6 rounded-md bg-gray-700 border-gray-500 text-blue-500 focus:ring-blue-500" ${isSelected ? 'checked' : ''}>
+                    <p className="text-xs text-gray-500">MP4, WebM 등 동영상 파일</p>
+                </div>
+            </div>
+            {isUploading && (
+                <div className="mt-4">
+                    <p className="text-sm font-medium text-gray-700 mb-1">업로드 및 분석 요청 중...</p>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                        <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${uploadProgress}%` }}></div>
                     </div>
-                    ${item.owner === state.currentUser?.uid ? `
-                    <button class="delete-btn absolute bottom-2 right-2 bg-red-800/50 hover:bg-red-700 p-2 rounded-full transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" /></svg>
-                    </button>` : ''}
-                `;
-                
-                card.querySelector('.compare-checkbox').addEventListener('click', (e) => { e.stopPropagation(); toggleComparisonItem(item.id); });
-                
-                const deleteBtn = card.querySelector('.delete-btn');
-                if (deleteBtn) {
-                    deleteBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        openDeleteConfirm(item.id);
-                    });
-                }
+                </div>
+            )}
+        </div>
+    );
+}
 
-                card.addEventListener('click', (e) => {
-                    if (e.target.closest('.delete-btn')) return;
-                    toggleComparisonItem(item.id);
-                });
-                app.containers.gallery.appendChild(card);
-            });
+// 동영상 라이브러리 컴포넌트
+function VideoLibrary({ videos }) {
+    const getStatusChip = (status) => {
+        switch (status) {
+            case '완료':
+                return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">완료</span>;
+            case '분석중':
+                return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">분석중</span>;
+            case '대기중':
+                return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">대기중</span>;
+            case '실패':
+                return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">실패</span>;
+            default:
+                return null;
         }
-        
-        function toggleComparisonItem(id) {
-            const card = app.containers.gallery.querySelector(`[data-id="${id}"]`);
-            const checkbox = card.querySelector('.compare-checkbox');
-            if (state.comparisonList.has(id)) {
-                state.comparisonList.delete(id);
-                card.classList.remove('border-blue-500');
-                checkbox.checked = false;
-            } else {
-                state.comparisonList.add(id);
-                card.classList.add('border-blue-500');
-                checkbox.checked = true;
-            }
-            app.buttons.compare.disabled = state.comparisonList.size === 0;
-        }
+    };
 
-        function switchView(viewName) {
-            Object.values(app.views).forEach(view => view.classList.add('hidden'));
-            if (app.views[viewName]) {
-                app.views[viewName].classList.remove('hidden');
-            }
-        }
+    return (
+        <div className="bg-white p-6 rounded-xl shadow-md">
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">내 라이브러리</h2>
+            <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                        <tr>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">파일명</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">업로드 날짜</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
+                            <th scope="col" className="relative px-6 py-3"><span className="sr-only">결과 보기</span></th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                        {videos.map((video) => (
+                            <tr key={video.id}>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{video.name}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{video.uploadedAt}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getStatusChip(video.status)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="#" className="text-indigo-600 hover:text-indigo-900">결과 보기</a>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
 
-        function handleImageUpload(e) {
-            const file = e.target.files[0];
-            if (!file) return;
+// 로그인 화면 컴포넌트
+function LoginScreen({ onLogin, isGoogleReady }) {
+    return (
+        <div className="text-center bg-white p-12 rounded-xl shadow-md">
+            <h2 className="text-2xl font-bold text-gray-800">서비스를 이용하려면 로그인이 필요합니다.</h2>
+            <p className="mt-2 text-gray-600">ggproduction.net Google 계정으로 로그인해주세요.</p>
+            <button 
+                onClick={onLogin}
+                disabled={!isGoogleReady}
+                className="mt-6 flex items-center justify-center bg-blue-600 text-white px-6 py-3 rounded-lg shadow hover:bg-blue-700 transition font-medium mx-auto disabled:bg-gray-400 disabled:cursor-not-allowed">
+                <GoogleIcon />
+                {isGoogleReady ? 'Google 계정으로 시작하기' : 'Google 로그인 로딩 중...'}
+            </button>
+        </div>
+    );
+}
 
-            state.originalImageFile = file;
-            state.resizedImageBlob = null;
+// --- 메인 App 컴포넌트 ---
+export default function App() {
+    const [user, setUser] = useState(null); 
+    const [error, setError] = useState(null);
+    const [googleClient, setGoogleClient] = useState(null);
+    const [isGoogleReady, setIsGoogleReady] = useState(false);
+    
+    // 임시 동영상 데이터
+    const [videos, setVideos] = useState([
+        { id: 1, name: 'interview_final_01.mp4', uploadedAt: '2025-07-01', status: '완료' },
+        { id: 2, name: 'camera_test_A.mov', uploadedAt: '2025-06-30', status: '분석중' },
+        { id: 3, name: 'presentation_clip.mp4', uploadedAt: '2025-06-29', status: '대기중' },
+        { id: 4, name: 'outdoor_scene.mp4', uploadedAt: '2025-06-28', status: '실패' },
+    ]);
+    
+    // Google Client ID를 여기에 입력하세요.
+    const googleClientId = "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com";
 
-            app.form.previewImage.src = URL.createObjectURL(file);
-            app.form.imagePreviewContainer.classList.remove('hidden');
-
-            if (file.size <= IMAGE_SIZE_LIMIT) {
-                app.form.previewTitle.textContent = '미리보기 (원본 유지)';
-            } else {
-                app.form.previewTitle.textContent = '미리보기 (리사이즈 진행 중...)';
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const targetWidth = Math.min(MAX_IMAGE_WIDTH, img.width);
-                    const targetHeight = (img.height / img.width) * targetWidth;
-                    canvas.width = targetWidth;
-                    canvas.height = targetHeight;
-                    
-                    picaInstance.resize(img, canvas)
-                        .then(result => picaInstance.toBlob(result, 'image/jpeg', 0.9))
-                        .then(blob => {
-                            state.resizedImageBlob = blob;
-                            app.form.previewImage.src = URL.createObjectURL(blob);
-                            app.form.previewTitle.textContent = '미리보기 (리사이즈됨)';
+    useEffect(() => {
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        script.onload = () => {
+            const client = google.accounts.oauth2.initTokenClient({
+                client_id: googleClientId,
+                scope: 'https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
+                callback: async (tokenResponse) => {
+                    try {
+                        const userInfo = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
+                            headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
                         });
-                };
-                img.src = URL.createObjectURL(file);
-            }
-        }
 
-        async function handleSave(e) {
-            e.preventDefault();
-            if (!state.originalImageFile) {
-                alert('결과물 이미지를 업로드해주세요.');
-                return;
-            }
-            if (!state.currentUser) {
-                alert('로그인이 필요합니다.');
-                return;
-            }
-
-            showStatusModal('업로드 시작...', '파일을 Firebase에 업로드합니다.');
-
-            try {
-                const id = `test-${Date.now()}`;
-                const originalFileName = state.originalImageFile.name;
-                const fileExtension = originalFileName.slice(originalFileName.lastIndexOf('.'));
-                const needsResize = state.originalImageFile.size > IMAGE_SIZE_LIMIT;
-                
-                let viewerImageUrl, originalImageUrl;
-                let storage_path_viewer, storage_path_original;
-
-                // 1. Upload images to Firebase Storage
-                if (needsResize) {
-                    updateStatusMessage('리사이즈된 이미지 업로드 중...');
-                    storage_path_viewer = `images/${id}.jpg`;
-                    const resizedImageRef = ref(storage, storage_path_viewer);
-                    await uploadBytes(resizedImageRef, state.resizedImageBlob);
-                    viewerImageUrl = await getDownloadURL(resizedImageRef);
-
-                    updateStatusMessage('원본 이미지 업로드 중...');
-                    storage_path_original = `images/${id}_original${fileExtension}`;
-                    const originalImageRef = ref(storage, storage_path_original);
-                    await uploadBytes(originalImageRef, state.originalImageFile);
-                    originalImageUrl = await getDownloadURL(originalImageRef);
-                } else {
-                    updateStatusMessage('원본 이미지 업로드 중...');
-                    storage_path_original = `images/${id}${fileExtension}`;
-                    const imageRef = ref(storage, storage_path_original);
-                    await uploadBytes(imageRef, state.originalImageFile);
-                    viewerImageUrl = await getDownloadURL(imageRef);
-                    originalImageUrl = viewerImageUrl;
-                    storage_path_viewer = storage_path_original;
+                        if (userInfo.data.email && userInfo.data.email.endsWith('@ggproduction.net')) {
+                            setUser(userInfo.data);
+                            setError(null);
+                        } else {
+                            setError('ggproduction.net 계정만 로그인이 허용됩니다.');
+                            setUser(null);
+                        }
+                    } catch (err) {
+                        console.error("Login Failed:", err);
+                        setError('로그인에 실패했습니다. 다시 시도해주세요.');
+                    }
+                },
+                error_callback: (error) => {
+                    console.error("Login Failed:", error);
+                    setError('로그인 과정 중 오류가 발생했습니다.');
                 }
+            });
+            setGoogleClient(client);
+            setIsGoogleReady(true);
+        };
+        document.body.appendChild(script);
 
-                // 2. Save data to Firestore
-                updateStatusMessage('데이터베이스에 저장 중...');
-                const newEntry = {
-                    owner: state.currentUser.uid,
-                    ownerName: state.currentUser.displayName,
-                    createdAt: new Date(),
-                    date: document.getElementById('date').value || new Date().toISOString().split('T')[0],
-                    title: document.getElementById('title').value,
-                    director: document.getElementById('director').value,
-                    sceneDesc: document.getElementById('sceneDesc').value,
-                    cameraModel: document.getElementById('cameraModel').value,
-                    lens: document.getElementById('lens').value,
-                    iso: document.getElementById('iso').value,
-                    aperture: document.getElementById('aperture').value,
-                    shutterSpeed: document.getElementById('shutterSpeed').value,
-                    whiteBalance: document.getElementById('whiteBalance').value,
-                    pictureProfile: document.getElementById('pictureProfile').value,
-                    focusDistance: document.getElementById('focusDistance').value,
-                    ndFilter: document.getElementById('ndFilter').value,
-                    image_original: originalImageUrl,
-                    image_viewer: viewerImageUrl,
-                    storage_path_original,
-                    storage_path_viewer
-                };
-                
-                await addDoc(collection(db, "camera_tests"), newEntry);
+        return () => {
+            document.body.removeChild(script);
+        };
+    }, [googleClientId]);
 
-                showStatusModal('업로드 성공!', '모든 파일이 성공적으로 저장되었습니다.', true);
-
-            } catch (error) {
-                console.error("Save failed:", error);
-                showStatusModal('업로드 실패', `오류가 발생했습니다: ${error.message}`, true);
-            }
+    const handleLogin = () => {
+        if (googleClient) {
+            googleClient.requestAccessToken();
+        } else {
+            setError("Google 로그인 라이브러리를 로딩 중입니다. 잠시 후 다시 시도해주세요.");
         }
+    };
 
-        function openDeleteConfirm(itemId) {
-            state.itemToDelete = itemId;
-            const item = state.allData.find(i => i.id === itemId);
-            app.modal.deleteConfirmMessage.textContent = `'${item.title}' 항목을 정말 삭제하시겠습니까? 관련된 모든 데이터와 이미지가 영구적으로 삭제되며, 되돌릴 수 없습니다.`;
-            app.modal.deleteConfirm.classList.remove('hidden');
-        }
+    const handleLogout = () => {
+        setUser(null);
+    };
 
-        async function handleDelete() {
-            const itemId = state.itemToDelete;
-            if (!itemId) return;
-
-            app.modal.deleteConfirm.classList.add('hidden');
-            showStatusModal('삭제 중...', '파일을 Firebase에서 삭제합니다.');
-
-            try {
-                const itemToDelete = state.allData.find(i => i.id === itemId);
-                if (!itemToDelete) throw new Error('Item not found in local data.');
-                
-                if (itemToDelete.owner !== state.currentUser.uid) {
-                    throw new Error("자신이 등록한 항목만 삭제할 수 있습니다.");
-                }
-
-                // 1. Delete images from Storage
-                const hasSeparateOriginal = itemToDelete.storage_path_original && itemToDelete.storage_path_viewer !== itemToDelete.storage_path_original;
-                if (hasSeparateOriginal) {
-                    updateStatusMessage('원본 이미지 삭제 중...');
-                    const originalRef = ref(storage, itemToDelete.storage_path_original);
-                    await deleteObject(originalRef).catch(e => console.warn("Original image delete failed, might not exist:", e));
-                }
-                updateStatusMessage('뷰어 이미지 삭제 중...');
-                const viewerRef = ref(storage, itemToDelete.storage_path_viewer);
-                await deleteObject(viewerRef).catch(e => console.warn("Viewer image delete failed, might not exist:", e));
-                
-                // 2. Delete data from Firestore
-                updateStatusMessage('데이터베이스에서 삭제 중...');
-                await deleteDoc(doc(db, "camera_tests", itemId));
-
-                showStatusModal('삭제 성공!', '항목이 성공적으로 삭제되었습니다.', true);
-
-            } catch (error) {
-                console.error("Delete failed:", error);
-                showStatusModal('삭제 실패', `오류가 발생했습니다: ${error.message}`, true);
-            } finally {
-                state.itemToDelete = null;
-            }
-        }
-        
-        function renderComparisonView() {
-            switchView('comparison');
-            app.containers.comparisonGrid.innerHTML = '';
+    return (
+        <div className="bg-gray-100 min-h-screen font-sans">
+            <Header user={user} onLogout={handleLogout} />
             
-            state.comparisonList.forEach(id => {
-                const item = state.allData.find(d => d.id === id);
-                if (!item) return;
-
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'bg-gray-800 rounded-lg shadow-lg p-4';
+            <main className="container mx-auto p-4 sm:p-6 lg:p-8">
+                {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-6" role="alert">{error}</div>}
                 
-                const hasSeparateOriginal = item.image_original && item.image_viewer !== item.image_original;
-
-                itemDiv.innerHTML = `
-                    <img src="${item.image_viewer}" alt="${item.title}" class="w-full h-64 object-cover rounded-md mb-4" onerror="this.onerror=null;this.src='https://placehold.co/600x400/1f2937/9ca3af?text=Image+Error';">
-                    <h3 class="font-bold text-xl mb-2">${item.title}</h3>
-                    <div class="space-y-1 text-sm text-gray-300">
-                        ${Object.entries(item).map(([key, value]) => {
-                            if (['id', 'owner', 'ownerName', 'createdAt', 'image_original', 'image_viewer', 'storage_path_original', 'storage_path_viewer'].includes(key) || !value) return '';
-                            return `<div class="flex justify-between"><span class="font-semibold text-gray-400 capitalize">${key.replace(/([A-Z])/g, ' $1')}:</span> <span class="text-right">${value}</span></div>`;
-                        }).join('')}
+                {user ? (
+                    <div className="space-y-8">
+                        <VideoUploader />
+                        <VideoLibrary videos={videos} />
                     </div>
-                    ${hasSeparateOriginal ? `<button data-original-src="${item.image_original}" class="view-original-btn mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">원본 이미지 보기</button>` : ''}
-                `;
-                app.containers.comparisonGrid.appendChild(itemDiv);
-            });
-
-            document.querySelectorAll('.view-original-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const src = e.target.dataset.originalSrc;
-                    app.modal.originalImageContent.src = src;
-                    app.modal.originalImage.classList.remove('hidden');
-                });
-            });
-        }
-
-        function showStatusModal(title, message, isFinished = false) {
-            app.modal.status.classList.remove('hidden');
-            app.modal.statusTitle.textContent = title;
-            app.modal.statusMessage.textContent = message;
-            app.modal.statusLoader.style.display = isFinished ? 'none' : 'flex';
-            app.buttons.closeStatusModal.classList.toggle('hidden', !isFinished);
-        }
-        
-        function updateStatusMessage(message) {
-            app.modal.statusMessage.textContent = message;
-        }
-
-        // --- Event Listeners ---
-        app.buttons.newTest.addEventListener('click', () => {
-            if (!state.currentUser) {
-                alert('로그인이 필요합니다.');
-                return;
-            }
-            app.form.formElement.reset();
-            app.form.title.textContent = '새 테스트 데이터 입력';
-            app.form.entryId.value = '';
-            app.form.imagePreviewContainer.classList.add('hidden');
-            state.resizedImageBlob = null; state.originalImageFile = null;
-            switchView('form');
-        });
-        
-        app.buttons.cancel.addEventListener('click', () => switchView('dashboard'));
-        app.buttons.backToDashboard.addEventListener('click', () => switchView('dashboard'));
-        app.buttons.compare.addEventListener('click', () => { if (state.comparisonList.size > 0) renderComparisonView(); });
-        app.form.imageUpload.addEventListener('change', handleImageUpload);
-        app.form.formElement.addEventListener('submit', handleSave);
-        app.buttons.closeStatusModal.addEventListener('click', () => {
-            app.modal.status.classList.add('hidden');
-            switchView('dashboard');
-        });
-        app.inputs.search.addEventListener('input', (e) => renderDashboard(e.target.value));
-
-        // Delete confirmation listeners
-        app.buttons.cancelDelete.addEventListener('click', () => {
-            app.modal.deleteConfirm.classList.add('hidden');
-            state.itemToDelete = null;
-        });
-        app.buttons.confirmDelete.addEventListener('click', handleDelete);
-    </script>
-</body>
-</html>
+                ) : (
+                    <LoginScreen onLogin={handleLogin} isGoogleReady={isGoogleReady} />
+                )}
+            </main>
+        </div>
+    );
+}
