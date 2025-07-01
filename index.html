@@ -66,11 +66,11 @@
                     </div>
                      <div>
                         <label for="tenengrad-threshold-input" class="block text-sm font-medium text-gray-700">테넨그라드 민감도</label>
-                        <input id="tenengrad-threshold-input" type="number" step="1" value="50" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        <input id="tenengrad-threshold-input" type="number" step="1" value="1000" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                     </div>
                      <div>
                         <label for="brenner-threshold-input" class="block text-sm font-medium text-gray-700">브레너 민감도</label>
-                        <input id="brenner-threshold-input" type="number" step="100" value="5000" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        <input id="brenner-threshold-input" type="number" step="10" value="150" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                     </div>
                 </div>
             </div>
@@ -135,7 +135,12 @@
         async function loadModels() {
             const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
             try {
-                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+                // 얼굴 인식(Recognition)을 위해 모델 추가 로드
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                ]);
                 modelStatus.textContent = '모델 로딩 완료! 동영상을 업로드하세요.';
                 modelStatus.classList.replace('text-yellow-600', 'text-green-600');
                 videoUpload.disabled = false;
@@ -188,8 +193,9 @@
                 tenengrad: parseFloat(tenengradThresholdInput.value),
                 brenner: parseFloat(brennerThresholdInput.value)
             };
+            const FACE_DISTANCE_THRESHOLD = 0.6; // 얼굴 유사도 임계값 (작을수록 동일인물)
             
-            let lastFrameState = null; // { canvas, detections, closest, scores, timestamp }
+            let lastFrameState = null; // { canvas, detections, closest, scores, descriptor, timestamp }
             let currentTime = 0;
             const interval = 1 / ANALYSIS_FPS;
             const duration = videoPlayer.duration;
@@ -203,11 +209,12 @@
                 frameCanvas.height = videoPlayer.videoHeight;
                 frameCtx.drawImage(videoPlayer, 0, 0, frameCanvas.width, frameCanvas.height);
                 
-                const detections = await faceapi.detectAllFaces(frameCanvas, new faceapi.TinyFaceDetectorOptions());
+                // 얼굴 탐지, 랜드마크, 인식 한번에 처리
+                const fullFaceDescriptions = await faceapi.detectAllFaces(frameCanvas, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptors();
                 
-                if (detections.length > 0) {
-                    const closestDetection = findClosestFace(detections, frameCanvas);
-                    const { x, y, width, height } = closestDetection.box;
+                if (fullFaceDescriptions.length > 0) {
+                    const closestFace = findClosestFace(fullFaceDescriptions, frameCanvas);
+                    const { x, y, width, height } = closestFace.detection.box;
                     const faceImageData = frameCtx.getImageData(x, y, width, height);
                     const grayData = toGrayscale(faceImageData);
                     
@@ -216,16 +223,18 @@
                         tenengrad: calculateTenengrad(grayData),
                         brenner: calculateBrennerGradient(grayData)
                     };
+                    const currentDescriptor = closestFace.descriptor;
                     
-                    addLog(`[${formatTime(currentTime)}] 얼굴 발견. 점수: Lap=${currentScores.laplacian.toFixed(2)}, Ten=${currentScores.tenengrad.toFixed(2)}, Bre=${currentScores.brenner.toFixed(2)}`);
+                    addLog(`[${formatTime(currentTime)}] 얼굴 발견. 점수: Lap=${currentScores.laplacian.toFixed(2)}`);
 
                     if (lastFrameState) {
+                        // 1. 흐림 변화 감지
                         const diffs = {
                             laplacian: Math.abs(currentScores.laplacian - lastFrameState.scores.laplacian),
                             tenengrad: Math.abs(currentScores.tenengrad - lastFrameState.scores.tenengrad),
                             brenner: Math.abs(currentScores.brenner - lastFrameState.scores.brenner)
                         };
-                        addLog(`  -> 이전 프레임과 비교. 점수 차이: Lap=${diffs.laplacian.toFixed(2)}, Ten=${diffs.tenengrad.toFixed(2)}, Bre=${diffs.brenner.toFixed(2)}`);
+                        addLog(`  -> 이전 프레임과 비교. 점수 차이: Lap=${diffs.laplacian.toFixed(2)}`);
 
                         let triggeredBy = null;
                         if (diffs.laplacian > THRESHOLDS.laplacian) triggeredBy = '라플라시안';
@@ -234,21 +243,32 @@
 
                         if (triggeredBy) {
                             addLog(`  -> 흐림 변화 감지! (트리거: ${triggeredBy})`);
-                            createResultCardForBlurChange(lastFrameState, {
-                                canvas: frameCanvas,
-                                detections: detections,
-                                closest: closestDetection,
-                                scores: currentScores,
-                                timestamp: currentTime
-                            });
+                            // 2. 동일 인물인지 확인
+                            const faceDistance = faceapi.euclideanDistance(currentDescriptor, lastFrameState.descriptor);
+                            addLog(`  -> 얼굴 유사도 거리: ${faceDistance.toFixed(4)} (임계값: ${FACE_DISTANCE_THRESHOLD})`);
+
+                            if (faceDistance > FACE_DISTANCE_THRESHOLD) {
+                                addLog(`  -> 다른 인물로 판단되어 결과 추출!`);
+                                createResultCardForBlurChange(lastFrameState, {
+                                    canvas: frameCanvas,
+                                    detections: fullFaceDescriptions.map(d => d.detection),
+                                    closest: closestFace.detection,
+                                    scores: currentScores,
+                                    descriptor: currentDescriptor,
+                                    timestamp: currentTime
+                                });
+                            } else {
+                                addLog(`  -> 동일 인물로 판단되어 건너뜁니다.`);
+                            }
                         }
                     }
 
                     lastFrameState = {
                         canvas: frameCanvas,
-                        detections: detections,
-                        closest: closestDetection,
+                        detections: fullFaceDescriptions.map(d => d.detection),
+                        closest: closestFace.detection,
                         scores: currentScores,
+                        descriptor: currentDescriptor,
                         timestamp: currentTime
                     };
 
@@ -271,12 +291,12 @@
             }
         }
 
-        function findClosestFace(detections, canvas) {
+        function findClosestFace(descriptions, canvas) {
             const imageCenter = { x: canvas.width / 2, y: canvas.height / 2 };
-            return detections.reduce((closest, current) => {
+            return descriptions.reduce((closest, current) => {
                 const getCenter = box => ({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
-                const distCurrent = getDistance(getCenter(current.box), imageCenter);
-                const distClosest = getDistance(getCenter(closest.box), imageCenter);
+                const distCurrent = getDistance(getCenter(current.detection.box), imageCenter);
+                const distClosest = getDistance(getCenter(closest.detection.box), imageCenter);
                 return distCurrent < distClosest ? current : closest;
             });
         }
